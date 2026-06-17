@@ -13,9 +13,15 @@ def verificar_usuario(usuario, contrasena):
 
     try:
         cursor = con.cursor()
-        query = "SELECT Tipo_usuario FROM USUARIO WHERE usuario = %s AND contrasena = %s"
+        query = """
+SELECT Tipo_Usuario
+FROM USUARIO
+WHERE Usuario = %s
+AND Contrasena = %s
+"""
         cursor.execute(query, (usuario, contrasena))
         result = cursor.fetchone()
+        st.write("Resultado:", result)
         return result[0] if result else None
     finally:
         con.close()
