@@ -44,6 +44,6 @@ def login():
             st.session_state["tipo_usuario"] = tipo
             st.success(f"Bienvenido ({tipo}) 👋")
             st.session_state["sesion_iniciada"] = True
-            st.rerun()
+            st.write("LOGIN EXITOSO")
         else:
             st.error("❌ Credenciales incorrectas.")
