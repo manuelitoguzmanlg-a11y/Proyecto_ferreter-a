@@ -14,6 +14,7 @@ def mostrar_venta():
     if st.button("Guardar Producto"):
 
         try:
+
             con = obtener_conexion()
             cursor = con.cursor()
 
@@ -35,18 +36,26 @@ def mostrar_venta():
             cursor.close()
             con.close()
 
+            st.rerun()
+
         except Exception as e:
             st.error(f"❌ Error: {e}")
 
-    # Mostrar productos registrados
     st.subheader("📋 Productos Registrados")
 
     try:
+
         con = obtener_conexion()
         cursor = con.cursor()
 
         cursor.execute("""
-            SELECT Id_Producto, Nombre, Codigo, Precio, Stock, Stock_Minimo
+            SELECT
+                Id_Producto,
+                Nombre,
+                Codigo,
+                Precio,
+                Stock,
+                Stock_Minimo
             FROM Producto
         """)
 
@@ -71,20 +80,46 @@ def mostrar_venta():
                     f"Stock: {stock}"
                 )
 
+                if st.button(
+                    f"🗑️ Eliminar {id_producto}",
+                    key=f"eliminar_{id_producto}"
+                ):
+
+                    cursor.execute(
+                        "DELETE FROM Producto WHERE Id_Producto = %s",
+                        (id_producto,)
+                    )
+
+                    con.commit()
+
+                    st.success("✅ Producto eliminado")
+
+                    st.rerun()
+
                 if stock == 0:
-                    st.error(f"🚨 {nombre} AGOTADO")
+
+                    st.error(
+                        f"🚨 {nombre} AGOTADO"
+                    )
 
                 elif stock <= stock_minimo:
+
                     st.warning(
                         f"⚠️ {nombre} está próximo a agotarse "
                         f"(Stock: {stock})"
                     )
 
+                st.divider()
+
         else:
+
             st.info("No hay productos registrados.")
 
         cursor.close()
         con.close()
 
     except Exception as e:
-        st.error(f"Error al cargar productos: {e}")
+
+        st.error(
+            f"Error al cargar productos: {e}"
+        )
