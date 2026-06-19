@@ -5,12 +5,10 @@ from modulos.ventas import mostrar_ventas
 from modulos.login import login
 
 
-# Inicializar sesión
 if "sesion_iniciada" not in st.session_state:
     st.session_state["sesion_iniciada"] = False
 
 
-# Si ya inició sesión
 if st.session_state["sesion_iniciada"]:
 
     st.title("🏪 Sistema Ferretería Elohim")
@@ -24,19 +22,13 @@ if st.session_state["sesion_iniciada"]:
         st.session_state.clear()
         st.rerun()
 
-    # ==========================
-    # MÓDULO PRODUCTOS
-    # ==========================
-    mostrar_venta()
+    tab1, tab2 = st.tabs(["📦 Productos", "💰 Ventas"])
 
-    st.divider()
+    with tab1:
+        mostrar_venta()
 
-    # ==========================
-    # MÓDULO VENTAS
-    # ==========================
-    mostrar_ventas()
+    with tab2:
+        mostrar_ventas()
 
-
-# Si NO ha iniciado sesión
 else:
     login()
