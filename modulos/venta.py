@@ -3,16 +3,21 @@ import streamlit as st
 import pandas as pd
 
 
+def es_administrador():
+
+    usuario = st.session_state.get("usuario", "").lower()
+    rol = st.session_state.get("rol", "").lower()
+
+    return usuario in ["marvin", "marvin2"] or rol in ["administrador", "admin"]
+
+
 def leer_codigo_desde_imagen(imagen):
-    """
-    Intenta leer un código de barras o QR desde una imagen tomada con cámara.
-    Si no está instalado pyzbar, no rompe el sistema.
-    """
+
     try:
         from PIL import Image
         from pyzbar.pyzbar import decode
     except Exception:
-        return None, "Para usar la cámara necesitás instalar pillow y pyzbar."
+        return None, "Para usar la cámara necesitás tener instalado pillow y pyzbar."
 
     try:
         imagen_pil = Image.open(imagen)
@@ -31,13 +36,9 @@ def leer_codigo_desde_imagen(imagen):
 def mostrar_venta():
 
     st.title("📦 Gestión de Productos")
-    st.caption("Registro, búsqueda, consulta, eliminación y control de stock de productos.")
+    st.caption("Registro, búsqueda, consulta y control de stock de productos.")
 
     st.divider()
-
-    # ==============================
-    # REGISTRAR PRODUCTO
-    # ==============================
 
     with st.expander("➕ Registrar nuevo producto", expanded=True):
 
@@ -68,6 +69,7 @@ def mostrar_venta():
                     st.warning("⚠️ Debés completar el nombre y el código del producto.")
 
                 else:
+
                     try:
                         con = obtener_conexion()
                         cursor = con.cursor()
@@ -91,15 +93,10 @@ def mostrar_venta():
 
     st.divider()
 
-    # ==============================
-    # BUSCADOR / ESCÁNER
-    # ==============================
-
-    with st.expander("🔎 Buscar producto por código o escanear", expanded=False):
+    with st.expander("🔎 Buscar producto por código o escáner", expanded=False):
 
         st.info(
-            "Podés escribir el código manualmente o intentar leerlo con la cámara "
-            "si el producto tiene código de barras o QR."
+            "Podés escribir el código manualmente o usar la cámara para leer un código de barras o QR."
         )
 
         metodo = st.radio(
@@ -127,20 +124,25 @@ def mostrar_venta():
 
                 if codigo_leido:
                     st.success(f"✅ Código detectado: {codigo_leido}")
+
                     codigo_buscar = st.text_input(
                         "Código detectado",
                         value=codigo_leido,
                         key="codigo_detectado"
                     )
+
                 else:
                     st.warning(error)
 
-        if st.button("🔍 Buscar producto"):
+        buscar = st.button("🔍 Buscar producto")
+
+        if buscar:
 
             if codigo_buscar.strip() == "":
                 st.warning("⚠️ Ingresá o escaneá un código primero.")
 
             else:
+
                 try:
                     con = obtener_conexion()
                     cursor = con.cursor()
@@ -200,10 +202,6 @@ def mostrar_venta():
 
     st.divider()
 
-    # ==============================
-    # PRODUCTOS REGISTRADOS
-    # ==============================
-
     with st.expander("📋 Ver productos registrados", expanded=False):
 
         try:
@@ -262,47 +260,54 @@ def mostrar_venta():
                     hide_index=True
                 )
 
-                st.divider()
+                if es_administrador():
 
-                st.subheader("🗑️ Eliminar producto")
+                    st.divider()
+                    st.subheader("🗑️ Eliminar producto")
 
-                opciones_eliminar = {}
+                    opciones_eliminar = {}
 
-                for fila in datos:
-                    texto = (
-                        f"{fila['Producto']} | Código: {fila['Código']} | "
-                        f"Stock: {fila['Stock']}"
-                    )
-                    opciones_eliminar[texto] = fila["ID interno"]
-
-                producto_eliminar = st.selectbox(
-                    "Seleccione el producto que desea eliminar",
-                    list(opciones_eliminar.keys())
-                )
-
-                confirmar = st.checkbox("Confirmo que deseo eliminar este producto")
-
-                if st.button("🗑️ Eliminar producto seleccionado", disabled=not confirmar):
-
-                    try:
-                        id_eliminar = opciones_eliminar[producto_eliminar]
-
-                        cursor.execute("""
-                            DELETE FROM Producto
-                            WHERE Id_Producto = %s
-                        """, (id_eliminar,))
-
-                        con.commit()
-
-                        st.success("✅ Producto eliminado correctamente.")
-                        st.rerun()
-
-                    except Exception as e:
-                        st.error(
-                            "❌ No se pudo eliminar el producto. "
-                            "Puede que ya tenga ventas registradas."
+                    for fila in datos:
+                        texto = (
+                            f"{fila['Producto']} | Código: {fila['Código']} | "
+                            f"Stock: {fila['Stock']}"
                         )
-                        st.error(f"Detalle: {e}")
+
+                        opciones_eliminar[texto] = fila["ID interno"]
+
+                    producto_eliminar = st.selectbox(
+                        "Seleccione el producto que desea eliminar",
+                        list(opciones_eliminar.keys())
+                    )
+
+                    confirmar = st.checkbox("Confirmo que deseo eliminar este producto")
+
+                    eliminar = st.button(
+                        "🗑️ Eliminar producto seleccionado",
+                        disabled=not confirmar
+                    )
+
+                    if eliminar:
+
+                        try:
+                            id_eliminar = opciones_eliminar[producto_eliminar]
+
+                            cursor.execute("""
+                                DELETE FROM Producto
+                                WHERE Id_Producto = %s
+                            """, (id_eliminar,))
+
+                            con.commit()
+
+                            st.success("✅ Producto eliminado correctamente.")
+                            st.rerun()
+
+                        except Exception as e:
+                            st.error(
+                                "❌ No se pudo eliminar el producto. "
+                                "Puede que ya tenga ventas registradas."
+                            )
+                            st.error(f"Detalle: {e}")
 
             else:
                 st.info("No hay productos registrados.")
