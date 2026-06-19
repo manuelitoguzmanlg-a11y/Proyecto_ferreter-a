@@ -1,48 +1,57 @@
 import streamlit as st
-from modulos.config.conexion import obtener_conexion
 
 
-def verificar_usuario(usuario, contrasena):
-    con = obtener_conexion()
-    if not con:
-        st.error("⚠️ No se pudo conectar a la base de datos.")
-        return None
-    else:
-        # ✅ Guardar en el estado que la conexión fue exitosa
-        st.session_state["conexion_exitosa"] = True
+USUARIOS = {
+    "marvin": {
+        "password": "1234",
+        "rol": "Administrador",
+        "nombre": "Marvin"
+    },
+    "marvin2": {
+        "password": "1234",
+        "rol": "Administrador",
+        "nombre": "Marvin2"
+    },
+    "vendedor": {
+        "password": "1234",
+        "rol": "Vendedor",
+        "nombre": "Vendedor"
+    },
+    "vendedor2": {
+        "password": "1234",
+        "rol": "Vendedor",
+        "nombre": "Vendedor2"
+    }
+}
 
-    try:
-        cursor = con.cursor()
-        query = """
-SELECT Tipo_Usuario
-FROM USUARIO
-WHERE Usuario = %s
-AND Contrasena = %s
-"""
-        cursor.execute(query, (usuario, contrasena))
-        result = cursor.fetchone()
-        return result[0] if result else None
-    finally:
-        con.close()
 
+def mostrar_login():
 
-def login():
-    st.title("Inicio de sesión")
+    st.title("🔐 Sistema Ferretería HELOIM")
+    st.caption("Inicio de sesión por roles de usuario")
 
-    # 🟢 Mostrar mensaje persistente si ya hubo conexión exitosa
-    if st.session_state.get("conexion_exitosa"):
-        st.success("✅ Conexión a la base de datos establecida correctamente.")
+    st.divider()
 
-    usuario = st.text_input("Usuario", key="usuario_input")
-    contrasena = st.text_input("Contraseña", type="password", key="contrasena_input")
+    with st.form("form_login"):
 
-    if st.button("Iniciar sesión"):
-        tipo = verificar_usuario(usuario, contrasena)
-        if tipo:
-            st.session_state["usuario"] = usuario
-            st.session_state["tipo_usuario"] = tipo
-            st.success(f"Bienvenido ({tipo}) 👋")
-            st.session_state["sesion_iniciada"] = True
-            st.rerun()
-        else:
-            st.error("❌ Credenciales incorrectas.")
+        usuario = st.text_input("Usuario")
+        password = st.text_input("Contraseña", type="password")
+
+        ingresar = st.form_submit_button("Ingresar")
+
+        if ingresar:
+
+            usuario_limpio = usuario.lower().strip()
+
+            if usuario_limpio in USUARIOS and password == USUARIOS[usuario_limpio]["password"]:
+
+                st.session_state["logueado"] = True
+                st.session_state["usuario"] = usuario_limpio
+                st.session_state["nombre_usuario"] = USUARIOS[usuario_limpio]["nombre"]
+                st.session_state["rol"] = USUARIOS[usuario_limpio]["rol"]
+
+                st.success("✅ Inicio de sesión correcto")
+                st.rerun()
+
+            else:
+                st.error("❌ Usuario o contraseña incorrectos")
