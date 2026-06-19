@@ -21,7 +21,6 @@ AND Contrasena = %s
 """
         cursor.execute(query, (usuario, contrasena))
         result = cursor.fetchone()
-        st.write("Resultado:", result)
         return result[0] if result else None
     finally:
         con.close()
@@ -44,6 +43,6 @@ def login():
             st.session_state["tipo_usuario"] = tipo
             st.success(f"Bienvenido ({tipo}) 👋")
             st.session_state["sesion_iniciada"] = True
-            st.write("LOGIN EXITOSO")
+            st.rerun()
         else:
             st.error("❌ Credenciales incorrectas.")
