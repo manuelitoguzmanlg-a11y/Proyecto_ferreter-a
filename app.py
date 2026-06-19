@@ -2,17 +2,7 @@ import streamlit as st
 from modulos.login import mostrar_login
 from modulos.venta import mostrar_venta
 from modulos.ventas import mostrar_ventas
-
-
-try:
-    from modulos.compras import mostrar_compras
-    MODULO_COMPRAS_DISPONIBLE = True
-except Exception:
-    try:
-        from modulos.compra import mostrar_compras
-        MODULO_COMPRAS_DISPONIBLE = True
-    except Exception:
-        MODULO_COMPRAS_DISPONIBLE = False
+from modulos.compras import mostrar_compras
 
 
 st.set_page_config(
@@ -96,17 +86,7 @@ if es_administrador():
         mostrar_ventas()
 
     with tab_compras:
-
-        st.title("🛒 Proceso de Compras")
-        st.caption("Este módulo es exclusivo para administradores.")
-
-        if MODULO_COMPRAS_DISPONIBLE:
-            mostrar_compras()
-        else:
-            st.warning(
-                "⚠️ Todavía no se encontró un archivo de compras. "
-                "Cuando tengás compra.py o compras.py lo conectamos aquí."
-            )
+        mostrar_compras()
 
 else:
 
