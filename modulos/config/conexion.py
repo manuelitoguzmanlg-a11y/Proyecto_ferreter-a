@@ -12,6 +12,11 @@ def obtener_conexion():
         )
         if conexion.is_connected():
             print("✅ Conexión establecida")
+            
+            cursor = conexion.cursor()
+cursor.execute("SET time_zone = '-06:00'")
+cursor.close()
+
             return conexion
         else:
             print("❌ Conexión fallida (is_connected = False)")
