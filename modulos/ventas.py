@@ -1,95 +1,130 @@
-from modulos.config.conexion import obtener_conexion
+from modulos.config.conexion import obtener_conexion, obtener_fecha_hora_el_salvador
 import streamlit as st
 
 
 def mostrar_ventas():
 
-    st.subheader("💰 Registro de Ventas")
+    st.title("💰 Registro de Ventas")
+    st.caption(
+        "Registra ventas, descuenta stock automáticamente y muestra el historial con hora de El Salvador."
+    )
+
+    st.divider()
+
+    # ==============================
+    # REGISTRO DE VENTA
+    # ==============================
+
+    st.subheader("🛒 Nueva venta")
 
     try:
-
         con = obtener_conexion()
         cursor = con.cursor()
 
         cursor.execute("""
             SELECT Id_Producto, Nombre, Stock
             FROM Producto
+            ORDER BY Nombre ASC
         """)
 
         productos = cursor.fetchall()
 
         if not productos:
-            st.warning("No hay productos registrados.")
+            st.warning("⚠️ No hay productos registrados.")
+            cursor.close()
+            con.close()
             return
 
         opciones = {}
 
         for producto in productos:
-            opciones[f"{producto[1]} (Stock: {producto[2]})"] = producto[0]
+            id_producto = producto[0]
+            nombre = producto[1]
+            stock = producto[2]
 
-        producto_seleccionado = st.selectbox(
-            "Seleccione producto",
-            list(opciones.keys())
-        )
+            opciones[f"{nombre} | Stock disponible: {stock}"] = id_producto
 
-        cantidad = st.number_input(
-            "Cantidad a vender",
-            min_value=1,
-            step=1
-        )
+        with st.form("form_registro_venta"):
 
-        if st.button("Registrar Venta"):
+            producto_seleccionado = st.selectbox(
+                "Seleccione el producto",
+                list(opciones.keys())
+            )
 
-            id_producto = opciones[producto_seleccionado]
+            cantidad = st.number_input(
+                "Cantidad a vender",
+                min_value=1,
+                step=1
+            )
 
-            cursor.execute("""
-                SELECT Stock
-                FROM Producto
-                WHERE Id_Producto = %s
-            """, (id_producto,))
+            registrar = st.form_submit_button("💾 Registrar venta")
 
-            stock_actual = cursor.fetchone()[0]
+            if registrar:
 
-            if cantidad > stock_actual:
-
-                st.error(
-                    f"No hay suficiente stock. Disponible: {stock_actual}"
-                )
-
-            else:
-
-                nuevo_stock = stock_actual - cantidad
+                id_producto = opciones[producto_seleccionado]
 
                 cursor.execute("""
-                    UPDATE Producto
-                    SET Stock = %s
+                    SELECT Stock
+                    FROM Producto
                     WHERE Id_Producto = %s
-                """, (nuevo_stock, id_producto))
+                """, (id_producto,))
 
-                cursor.execute("""
-                    INSERT INTO Venta
-                    (Id_Producto, Cantidad)
-                    VALUES (%s, %s)
-                """, (id_producto, cantidad))
+                resultado_stock = cursor.fetchone()
 
-                con.commit()
+                if resultado_stock is None:
+                    st.error("❌ El producto seleccionado no existe.")
 
-                st.success(
-                    f"Venta registrada. Nuevo stock: {nuevo_stock}"
-                )
+                else:
+                    stock_actual = resultado_stock[0]
 
-                st.rerun()
+                    if cantidad > stock_actual:
+
+                        st.error(
+                            f"❌ No hay suficiente stock. Disponible: {stock_actual}"
+                        )
+
+                    else:
+
+                        nuevo_stock = stock_actual - cantidad
+
+                        # Hora correcta de El Salvador
+                        fecha_venta = obtener_fecha_hora_el_salvador()
+
+                        cursor.execute("""
+                            UPDATE Producto
+                            SET Stock = %s
+                            WHERE Id_Producto = %s
+                        """, (nuevo_stock, id_producto))
+
+                        cursor.execute("""
+                            INSERT INTO Venta
+                            (Id_Producto, Cantidad, Fecha)
+                            VALUES (%s, %s, %s)
+                        """, (id_producto, cantidad, fecha_venta))
+
+                        con.commit()
+
+                        st.success(
+                            f"✅ Venta registrada correctamente. Nuevo stock: {nuevo_stock}"
+                        )
+
+                        st.rerun()
 
         cursor.close()
         con.close()
 
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"❌ Error al registrar venta: {e}")
+
+    st.divider()
+
+    # ==============================
+    # HISTORIAL DE VENTAS
+    # ==============================
 
     st.subheader("📋 Historial de Ventas")
 
     try:
-
         con = obtener_conexion()
         cursor = con.cursor()
 
@@ -111,20 +146,92 @@ def mostrar_ventas():
 
             for venta in ventas:
 
-                st.write(
-                    f"Venta #{venta[0]} | "
-                    f"Producto: {venta[1]} | "
-                    f"Cantidad: {venta[2]} | "
-                    f"Fecha: {venta[3]}"
-                )
+                id_venta = venta[0]
+                producto = venta[1]
+                cantidad = venta[2]
+                fecha = venta[3]
+
+                with st.container():
+
+                    col1, col2, col3, col4, col5 = st.columns([1.2, 3, 1.5, 3, 2])
+
+                    with col1:
+                        st.write(f"**Venta #{id_venta}**")
+
+                    with col2:
+                        st.write(f"**Producto:** {producto}")
+
+                    with col3:
+                        st.write(f"**Cantidad:** {cantidad}")
+
+                    with col4:
+                        st.write(f"**Fecha:** {fecha}")
+
+                    with col5:
+                        confirmar = st.checkbox(
+                            "Confirmar",
+                            key=f"confirmar_eliminar_venta_{id_venta}"
+                        )
+
+                        eliminar = st.button(
+                            "🗑️ Eliminar",
+                            key=f"eliminar_venta_{id_venta}",
+                            disabled=not confirmar
+                        )
+
+                    if eliminar:
+
+                        try:
+                            # Buscar la venta antes de eliminarla
+                            cursor.execute("""
+                                SELECT Id_Producto, Cantidad
+                                FROM Venta
+                                WHERE Id_Venta = %s
+                            """, (id_venta,))
+
+                            venta_eliminar = cursor.fetchone()
+
+                            if venta_eliminar is None:
+
+                                st.error("❌ La venta ya no existe.")
+
+                            else:
+
+                                id_producto = venta_eliminar[0]
+                                cantidad_vendida = venta_eliminar[1]
+
+                                # Devolver la cantidad al stock
+                                cursor.execute("""
+                                    UPDATE Producto
+                                    SET Stock = Stock + %s
+                                    WHERE Id_Producto = %s
+                                """, (cantidad_vendida, id_producto))
+
+                                # Eliminar el registro de venta
+                                cursor.execute("""
+                                    DELETE FROM Venta
+                                    WHERE Id_Venta = %s
+                                """, (id_venta,))
+
+                                con.commit()
+
+                                st.success(
+                                    "✅ Venta eliminada correctamente y stock restaurado."
+                                )
+
+                                st.rerun()
+
+                        except Exception as e:
+                            con.rollback()
+                            st.error(f"❌ Error al eliminar venta: {e}")
+
+                    st.divider()
 
         else:
-
             st.info("No hay ventas registradas.")
 
         cursor.close()
         con.close()
 
     except Exception as e:
-
-        st.error(f"Error al cargar ventas: {e}")
+        st.error(f"❌ Error al cargar ventas: {e}")
