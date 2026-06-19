@@ -3,6 +3,14 @@ import streamlit as st
 import pandas as pd
 
 
+def es_administrador():
+
+    usuario = st.session_state.get("usuario", "").lower()
+    rol = st.session_state.get("rol", "").lower()
+
+    return usuario in ["marvin", "marvin2"] or rol in ["administrador", "admin"]
+
+
 def mostrar_ventas():
 
     st.title("💰 Registro de Ventas")
@@ -12,10 +20,6 @@ def mostrar_ventas():
 
     st.divider()
 
-    # ==============================
-    # REGISTRO DE VENTA
-    # ==============================
-
     with st.expander("🛒 Nueva venta", expanded=True):
 
         try:
@@ -23,7 +27,11 @@ def mostrar_ventas():
             cursor = con.cursor()
 
             cursor.execute("""
-                SELECT Id_Producto, Nombre, Codigo, Stock
+                SELECT
+                    Id_Producto,
+                    Nombre,
+                    Codigo,
+                    Stock
                 FROM Producto
                 ORDER BY Nombre ASC
             """)
@@ -39,12 +47,15 @@ def mostrar_ventas():
             opciones = {}
 
             for producto in productos:
+
                 id_producto = producto[0]
                 nombre = producto[1]
                 codigo = producto[2]
                 stock = producto[3]
 
-                opciones[f"{nombre} | Código: {codigo} | Stock disponible: {stock}"] = id_producto
+                opciones[
+                    f"{nombre} | Código: {codigo} | Stock disponible: {stock}"
+                ] = id_producto
 
             with st.form("form_registro_venta"):
 
@@ -74,9 +85,11 @@ def mostrar_ventas():
                     resultado_stock = cursor.fetchone()
 
                     if resultado_stock is None:
+
                         st.error("❌ El producto seleccionado no existe.")
 
                     else:
+
                         stock_actual = resultado_stock[0]
 
                         if cantidad > stock_actual:
@@ -88,7 +101,6 @@ def mostrar_ventas():
                         else:
 
                             nuevo_stock = stock_actual - cantidad
-
                             fecha_venta = obtener_fecha_hora_el_salvador()
 
                             cursor.execute("""
@@ -117,11 +129,96 @@ def mostrar_ventas():
         except Exception as e:
             st.error(f"❌ Error al registrar venta: {e}")
 
-    st.divider()
+    if es_administrador():
 
-    # ==============================
-    # HISTORIAL DE VENTAS
-    # ==============================
+        st.divider()
+
+        with st.expander("📊 Estadísticas de ventas", expanded=False):
+
+            try:
+                con = obtener_conexion()
+                cursor = con.cursor()
+
+                cursor.execute("""
+                    SELECT
+                        p.Nombre,
+                        p.Codigo,
+                        COALESCE(SUM(v.Cantidad), 0) AS Total_Vendido
+                    FROM Producto p
+                    LEFT JOIN Venta v
+                        ON p.Id_Producto = v.Id_Producto
+                    GROUP BY p.Id_Producto, p.Nombre, p.Codigo
+                    ORDER BY Total_Vendido DESC
+                    LIMIT 1
+                """)
+
+                mas_vendido = cursor.fetchone()
+
+                cursor.execute("""
+                    SELECT
+                        p.Nombre,
+                        p.Codigo,
+                        COALESCE(SUM(v.Cantidad), 0) AS Total_Vendido
+                    FROM Producto p
+                    LEFT JOIN Venta v
+                        ON p.Id_Producto = v.Id_Producto
+                    GROUP BY p.Id_Producto, p.Nombre, p.Codigo
+                    ORDER BY Total_Vendido ASC
+                    LIMIT 1
+                """)
+
+                menos_vendido = cursor.fetchone()
+
+                cursor.execute("""
+                    SELECT
+                        COUNT(*) AS Total_Registros,
+                        COALESCE(SUM(Cantidad), 0) AS Total_Unidades
+                    FROM Venta
+                """)
+
+                resumen = cursor.fetchone()
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+
+                    if mas_vendido:
+                        st.success("🔥 Producto más vendido")
+                        st.write(f"**Producto:** {mas_vendido[0]}")
+                        st.write(f"**Código:** {mas_vendido[1]}")
+                        st.write(f"**Unidades vendidas:** {mas_vendido[2]}")
+                    else:
+                        st.info("No hay productos registrados.")
+
+                with col2:
+
+                    if menos_vendido:
+                        st.warning("📉 Producto menos vendido")
+                        st.write(f"**Producto:** {menos_vendido[0]}")
+                        st.write(f"**Código:** {menos_vendido[1]}")
+                        st.write(f"**Unidades vendidas:** {menos_vendido[2]}")
+                    else:
+                        st.info("No hay productos registrados.")
+
+                st.divider()
+
+                if resumen:
+
+                    col3, col4 = st.columns(2)
+
+                    with col3:
+                        st.metric("Registros de ventas", resumen[0])
+
+                    with col4:
+                        st.metric("Unidades vendidas", resumen[1])
+
+                cursor.close()
+                con.close()
+
+            except Exception as e:
+                st.error(f"❌ Error al cargar estadísticas de ventas: {e}")
+
+    st.divider()
 
     with st.expander("📋 Ver historial de ventas", expanded=False):
 
@@ -150,6 +247,7 @@ def mostrar_ventas():
                 datos = []
 
                 for venta in ventas:
+
                     id_venta = venta[0]
                     id_producto = venta[1]
                     producto = venta[2]
@@ -175,61 +273,71 @@ def mostrar_ventas():
                     hide_index=True
                 )
 
-                st.divider()
+                if es_administrador():
 
-                st.subheader("🗑️ Eliminar registro de venta")
+                    st.divider()
+                    st.subheader("🗑️ Eliminar registro de venta")
 
-                opciones_eliminar = {}
+                    opciones_eliminar = {}
 
-                for fila in datos:
-                    texto = (
-                        f"{fila['Venta']} | {fila['Producto']} | "
-                        f"Cantidad: {fila['Cantidad']} | Fecha: {fila['Fecha']}"
+                    for fila in datos:
+
+                        texto = (
+                            f"{fila['Venta']} | {fila['Producto']} | "
+                            f"Cantidad: {fila['Cantidad']} | Fecha: {fila['Fecha']}"
+                        )
+
+                        opciones_eliminar[texto] = {
+                            "id_venta": fila["ID venta"],
+                            "id_producto": fila["ID producto"],
+                            "cantidad": fila["Cantidad"]
+                        }
+
+                    venta_eliminar = st.selectbox(
+                        "Seleccione la venta que desea eliminar",
+                        list(opciones_eliminar.keys())
                     )
 
-                    opciones_eliminar[texto] = {
-                        "id_venta": fila["ID venta"],
-                        "id_producto": fila["ID producto"],
-                        "cantidad": fila["Cantidad"]
-                    }
+                    confirmar = st.checkbox(
+                        "Confirmo que deseo eliminar esta venta y restaurar el stock"
+                    )
 
-                venta_eliminar = st.selectbox(
-                    "Seleccione la venta que desea eliminar",
-                    list(opciones_eliminar.keys())
-                )
+                    eliminar = st.button(
+                        "🗑️ Eliminar venta seleccionada",
+                        disabled=not confirmar
+                    )
 
-                confirmar = st.checkbox(
-                    "Confirmo que deseo eliminar esta venta y restaurar el stock"
-                )
+                    if eliminar:
 
-                if st.button("🗑️ Eliminar venta seleccionada", disabled=not confirmar):
+                        try:
+                            datos_venta = opciones_eliminar[venta_eliminar]
 
-                    try:
-                        datos_venta = opciones_eliminar[venta_eliminar]
+                            id_venta = datos_venta["id_venta"]
+                            id_producto = datos_venta["id_producto"]
+                            cantidad = datos_venta["cantidad"]
 
-                        id_venta = datos_venta["id_venta"]
-                        id_producto = datos_venta["id_producto"]
-                        cantidad = datos_venta["cantidad"]
+                            cursor.execute("""
+                                UPDATE Producto
+                                SET Stock = Stock + %s
+                                WHERE Id_Producto = %s
+                            """, (cantidad, id_producto))
 
-                        cursor.execute("""
-                            UPDATE Producto
-                            SET Stock = Stock + %s
-                            WHERE Id_Producto = %s
-                        """, (cantidad, id_producto))
+                            cursor.execute("""
+                                DELETE FROM Venta
+                                WHERE Id_Venta = %s
+                            """, (id_venta,))
 
-                        cursor.execute("""
-                            DELETE FROM Venta
-                            WHERE Id_Venta = %s
-                        """, (id_venta,))
+                            con.commit()
 
-                        con.commit()
+                            st.success(
+                                "✅ Venta eliminada correctamente y stock restaurado."
+                            )
 
-                        st.success("✅ Venta eliminada correctamente y stock restaurado.")
-                        st.rerun()
+                            st.rerun()
 
-                    except Exception as e:
-                        con.rollback()
-                        st.error(f"❌ Error al eliminar venta: {e}")
+                        except Exception as e:
+                            con.rollback()
+                            st.error(f"❌ Error al eliminar venta: {e}")
 
             else:
                 st.info("No hay ventas registradas.")
