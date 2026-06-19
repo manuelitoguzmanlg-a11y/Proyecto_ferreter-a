@@ -1,169 +1,314 @@
 from modulos.config.conexion import obtener_conexion
 import streamlit as st
+import pandas as pd
+
+
+def leer_codigo_desde_imagen(imagen):
+    """
+    Intenta leer un código de barras o QR desde una imagen tomada con cámara.
+    Si no está instalado pyzbar, no rompe el sistema.
+    """
+    try:
+        from PIL import Image
+        from pyzbar.pyzbar import decode
+    except Exception:
+        return None, "Para usar la cámara necesitás instalar pillow y pyzbar."
+
+    try:
+        imagen_pil = Image.open(imagen)
+        codigos = decode(imagen_pil)
+
+        if codigos:
+            codigo = codigos[0].data.decode("utf-8")
+            return codigo, None
+
+        return None, "No se detectó ningún código. Probá acercar mejor la cámara."
+
+    except Exception as e:
+        return None, f"Error al leer el código: {e}"
 
 
 def mostrar_venta():
 
     st.title("📦 Gestión de Productos")
-    st.caption("Registro, consulta, eliminación y control de stock de productos.")
+    st.caption("Registro, búsqueda, consulta, eliminación y control de stock de productos.")
 
     st.divider()
 
     # ==============================
-    # FORMULARIO DE PRODUCTOS
+    # REGISTRAR PRODUCTO
     # ==============================
 
-    st.subheader("➕ Registrar nuevo producto")
+    with st.expander("➕ Registrar nuevo producto", expanded=True):
 
-    with st.form("form_producto"):
+        with st.form("form_producto"):
 
-        col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2)
 
-        with col1:
-            nombre = st.text_input("Nombre del producto")
-            codigo = st.text_input("Código del producto")
+            with col1:
+                nombre = st.text_input("Nombre del producto")
+                codigo = st.text_input("Código del producto")
 
-        with col2:
-            precio = st.number_input("Precio", min_value=0.0, step=0.01)
-            stock = st.number_input("Stock inicial", min_value=0, step=1)
+            with col2:
+                precio = st.number_input("Precio", min_value=0.0, step=0.01)
+                stock = st.number_input("Stock inicial", min_value=0, step=1)
 
-        stock_minimo = st.number_input(
-            "Stock mínimo",
-            min_value=0,
-            value=5,
-            step=1
+            stock_minimo = st.number_input(
+                "Stock mínimo",
+                min_value=0,
+                value=5,
+                step=1
+            )
+
+            guardar = st.form_submit_button("💾 Guardar producto")
+
+            if guardar:
+
+                if nombre.strip() == "" or codigo.strip() == "":
+                    st.warning("⚠️ Debés completar el nombre y el código del producto.")
+
+                else:
+                    try:
+                        con = obtener_conexion()
+                        cursor = con.cursor()
+
+                        cursor.execute("""
+                            INSERT INTO Producto
+                            (Nombre, Codigo, Precio, Stock, Stock_Minimo)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (nombre, codigo, precio, stock, stock_minimo))
+
+                        con.commit()
+
+                        cursor.close()
+                        con.close()
+
+                        st.success("✅ Producto guardado correctamente.")
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"❌ Error al guardar producto: {e}")
+
+    st.divider()
+
+    # ==============================
+    # BUSCADOR / ESCÁNER
+    # ==============================
+
+    with st.expander("🔎 Buscar producto por código o escanear", expanded=False):
+
+        st.info(
+            "Podés escribir el código manualmente o intentar leerlo con la cámara "
+            "si el producto tiene código de barras o QR."
         )
 
-        guardar = st.form_submit_button("💾 Guardar producto")
+        metodo = st.radio(
+            "Método de búsqueda",
+            ["Escribir código", "Usar cámara"],
+            horizontal=True
+        )
 
-        if guardar:
+        codigo_buscar = ""
 
-            if nombre.strip() == "" or codigo.strip() == "":
-                st.warning("⚠️ Debes completar el nombre y el código del producto.")
+        if metodo == "Escribir código":
+
+            codigo_buscar = st.text_input(
+                "Ingresá el código del producto",
+                key="codigo_buscar_manual"
+            )
+
+        else:
+
+            foto = st.camera_input("📷 Tomar foto del código")
+
+            if foto is not None:
+
+                codigo_leido, error = leer_codigo_desde_imagen(foto)
+
+                if codigo_leido:
+                    st.success(f"✅ Código detectado: {codigo_leido}")
+                    codigo_buscar = st.text_input(
+                        "Código detectado",
+                        value=codigo_leido,
+                        key="codigo_detectado"
+                    )
+                else:
+                    st.warning(error)
+
+        if st.button("🔍 Buscar producto"):
+
+            if codigo_buscar.strip() == "":
+                st.warning("⚠️ Ingresá o escaneá un código primero.")
 
             else:
                 try:
                     con = obtener_conexion()
                     cursor = con.cursor()
 
-                    sql = """
-                    INSERT INTO Producto
-                    (Nombre, Codigo, Precio, Stock, Stock_Minimo)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """
+                    cursor.execute("""
+                        SELECT
+                            Nombre,
+                            Codigo,
+                            Precio,
+                            Stock,
+                            Stock_Minimo
+                        FROM Producto
+                        WHERE Codigo = %s
+                    """, (codigo_buscar.strip(),))
 
-                    cursor.execute(
-                        sql,
-                        (nombre, codigo, precio, stock, stock_minimo)
-                    )
-
-                    con.commit()
+                    producto = cursor.fetchone()
 
                     cursor.close()
                     con.close()
 
-                    st.success("✅ Producto guardado correctamente")
-                    st.rerun()
+                    if producto:
+
+                        nombre = producto[0]
+                        codigo = producto[1]
+                        precio = producto[2]
+                        stock = producto[3]
+                        stock_minimo = producto[4]
+
+                        st.success("✅ Producto encontrado.")
+
+                        col1, col2, col3, col4 = st.columns(4)
+
+                        with col1:
+                            st.metric("Producto", nombre)
+
+                        with col2:
+                            st.metric("Código", codigo)
+
+                        with col3:
+                            st.metric("Precio", f"${precio}")
+
+                        with col4:
+                            st.metric("Stock", stock)
+
+                        if stock == 0:
+                            st.error("🚨 Producto agotado.")
+                        elif stock <= stock_minimo:
+                            st.warning("⚠️ Producto próximo a agotarse.")
+                        else:
+                            st.success("✅ Producto disponible.")
+
+                    else:
+                        st.error("❌ Este producto no está registrado en el sistema.")
 
                 except Exception as e:
-                    st.error(f"❌ Error al guardar producto: {e}")
+                    st.error(f"❌ Error al buscar producto: {e}")
 
     st.divider()
 
     # ==============================
-    # LISTADO DE PRODUCTOS
+    # PRODUCTOS REGISTRADOS
     # ==============================
 
-    st.subheader("📋 Productos registrados")
+    with st.expander("📋 Ver productos registrados", expanded=False):
 
-    try:
-        con = obtener_conexion()
-        cursor = con.cursor()
+        try:
+            con = obtener_conexion()
+            cursor = con.cursor()
 
-        cursor.execute("""
-            SELECT
-                Id_Producto,
-                Nombre,
-                Codigo,
-                Precio,
-                Stock,
-                Stock_Minimo
-            FROM Producto
-            ORDER BY Nombre ASC
-        """)
+            cursor.execute("""
+                SELECT
+                    Id_Producto,
+                    Nombre,
+                    Codigo,
+                    Precio,
+                    Stock,
+                    Stock_Minimo
+                FROM Producto
+                ORDER BY Nombre ASC
+            """)
 
-        productos = cursor.fetchall()
+            productos = cursor.fetchall()
 
-        if productos:
+            if productos:
 
-            for producto in productos:
+                datos = []
 
-                id_producto = producto[0]
-                nombre = producto[1]
-                codigo = producto[2]
-                precio = producto[3]
-                stock = producto[4]
-                stock_minimo = producto[5]
+                for producto in productos:
 
-                with st.container():
-
-                    col1, col2, col3, col4, col5 = st.columns([1, 3, 2, 2, 2])
-
-                    with col1:
-                        st.write(f"**ID:** {id_producto}")
-
-                    with col2:
-                        st.write(f"**Producto:** {nombre}")
-
-                    with col3:
-                        st.write(f"**Código:** {codigo}")
-
-                    with col4:
-                        st.write(f"**Precio:** ${precio}")
-
-                    with col5:
-                        st.write(f"**Stock:** {stock}")
+                    id_producto = producto[0]
+                    nombre = producto[1]
+                    codigo = producto[2]
+                    precio = producto[3]
+                    stock = producto[4]
+                    stock_minimo = producto[5]
 
                     if stock == 0:
-                        st.error(f"🚨 {nombre} está AGOTADO")
-
+                        estado = "Agotado"
                     elif stock <= stock_minimo:
-                        st.warning(
-                            f"⚠️ {nombre} está próximo a agotarse. "
-                            f"Stock actual: {stock}"
-                        )
-
+                        estado = "Stock bajo"
                     else:
-                        st.success("✅ Stock disponible")
+                        estado = "Disponible"
 
-                    eliminar = st.button(
-                        f"🗑️ Eliminar producto ID {id_producto}",
-                        key=f"eliminar_{id_producto}"
+                    datos.append({
+                        "Producto": nombre,
+                        "Código": codigo,
+                        "Precio": f"${precio}",
+                        "Stock": stock,
+                        "Stock mínimo": stock_minimo,
+                        "Estado": estado,
+                        "ID interno": id_producto
+                    })
+
+                df = pd.DataFrame(datos)
+
+                st.dataframe(
+                    df[["Producto", "Código", "Precio", "Stock", "Stock mínimo", "Estado"]],
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                st.divider()
+
+                st.subheader("🗑️ Eliminar producto")
+
+                opciones_eliminar = {}
+
+                for fila in datos:
+                    texto = (
+                        f"{fila['Producto']} | Código: {fila['Código']} | "
+                        f"Stock: {fila['Stock']}"
                     )
+                    opciones_eliminar[texto] = fila["ID interno"]
 
-                    if eliminar:
+                producto_eliminar = st.selectbox(
+                    "Seleccione el producto que desea eliminar",
+                    list(opciones_eliminar.keys())
+                )
 
-                        try:
-                            cursor.execute(
-                                "DELETE FROM Producto WHERE Id_Producto = %s",
-                                (id_producto,)
-                            )
+                confirmar = st.checkbox("Confirmo que deseo eliminar este producto")
 
-                            con.commit()
+                if st.button("🗑️ Eliminar producto seleccionado", disabled=not confirmar):
 
-                            st.success("✅ Producto eliminado correctamente")
-                            st.rerun()
+                    try:
+                        id_eliminar = opciones_eliminar[producto_eliminar]
 
-                        except Exception as e:
-                            st.error(f"❌ Error al eliminar producto: {e}")
+                        cursor.execute("""
+                            DELETE FROM Producto
+                            WHERE Id_Producto = %s
+                        """, (id_eliminar,))
 
-                    st.divider()
+                        con.commit()
 
-        else:
-            st.info("No hay productos registrados.")
+                        st.success("✅ Producto eliminado correctamente.")
+                        st.rerun()
 
-        cursor.close()
-        con.close()
+                    except Exception as e:
+                        st.error(
+                            "❌ No se pudo eliminar el producto. "
+                            "Puede que ya tenga ventas registradas."
+                        )
+                        st.error(f"Detalle: {e}")
 
-    except Exception as e:
-        st.error(f"❌ Error al cargar productos: {e}")
+            else:
+                st.info("No hay productos registrados.")
+
+            cursor.close()
+            con.close()
+
+        except Exception as e:
+            st.error(f"❌ Error al cargar productos: {e}")
