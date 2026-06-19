@@ -1,36 +1,39 @@
 from modulos.config.conexion import obtener_conexion
 import streamlit as st
 
+
 def mostrar_venta():
+
     st.subheader("📦 Gestión de Productos")
 
-    st.text_input("Nombre del producto")
-    st.text_input("Código")
-    st.number_input("Precio", min_value=0.0)
-    st.number_input("Stock", min_value=0)
+    nombre = st.text_input("Nombre del producto")
+    codigo = st.text_input("Código")
+    precio = st.number_input("Precio", min_value=0.0)
+    stock = st.number_input("Stock", min_value=0)
 
     if st.button("Guardar Producto"):
-    try:
-        con = obtener_conexion()
-        cursor = con.cursor()
 
-        sql = """
-        INSERT INTO Producto
-        (Nombre, Codigo, Precio, Stock, Stock_Minimo)
-        VALUES (%s, %s, %s, %s, %s)
-        """
+        try:
+            con = obtener_conexion()
+            cursor = con.cursor()
 
-        cursor.execute(
-            sql,
-            (nombre, codigo, precio, stock, 5)
-        )
+            sql = """
+            INSERT INTO Producto
+            (Nombre, Codigo, Precio, Stock, Stock_Minimo)
+            VALUES (%s, %s, %s, %s, %s)
+            """
 
-        con.commit()
+            cursor.execute(
+                sql,
+                (nombre, codigo, precio, stock, 5)
+            )
 
-        st.success("✅ Producto guardado correctamente")
+            con.commit()
 
-        cursor.close()
-        con.close()
+            st.success("✅ Producto guardado correctamente")
 
-    except Exception as e:
-        st.error(f"Error: {e}")
+            cursor.close()
+            con.close()
+
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
