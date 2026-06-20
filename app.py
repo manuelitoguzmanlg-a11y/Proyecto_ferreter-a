@@ -6,6 +6,7 @@ from modulos.ventas import mostrar_ventas
 from modulos.compras import mostrar_compras
 from modulos.proveedores import mostrar_proveedores
 from modulos.reportes import mostrar_reportes
+from modulos.caja import mostrar_caja
 
 
 # =========================================================
@@ -196,7 +197,7 @@ st.markdown("""
     <div class="luxury-header">
         <div class="main-title">Sistema de Gestión de Información</div>
         <div class="main-subtitle">
-            Control de productos, ventas, compras, proveedores, reportes, inventario y accesos por rol.
+            Control de productos, ventas, compras, proveedores, reportes, caja, inventario y accesos por rol.
         </div>
         <div class="gold-line"></div>
     </div>
@@ -209,13 +210,14 @@ st.markdown("""
 
 if es_administrador():
 
-    tab_productos, tab_ventas, tab_compras, tab_proveedores, tab_reportes = st.tabs(
+    tab_productos, tab_ventas, tab_compras, tab_proveedores, tab_reportes, tab_caja = st.tabs(
         [
             "📦 Productos",
             "💰 Ventas",
             "🛒 Compras",
             "🚚 Proveedores",
-            "📊 Reportes"
+            "📊 Reportes",
+            "💵 Caja"
         ]
     )
 
@@ -233,6 +235,9 @@ if es_administrador():
 
     with tab_reportes:
         mostrar_reportes()
+
+    with tab_caja:
+        mostrar_caja()
 
 else:
 
