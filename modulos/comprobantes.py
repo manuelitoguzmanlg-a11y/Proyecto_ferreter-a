@@ -1,6 +1,7 @@
 from modulos.config.conexion import obtener_conexion
 import streamlit as st
 import pandas as pd
+import html
 
 
 # =========================================================
@@ -60,57 +61,91 @@ def aplicar_estilo_luxury():
                 color: #111827;
                 border: 2px solid #d4af37;
                 border-radius: 16px;
-                padding: 28px;
+                padding: 32px;
                 margin-top: 20px;
                 font-family: Arial, sans-serif;
                 box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+                max-width: 850px;
             }
 
             .receipt-title {
                 text-align: center;
-                font-size: 30px;
+                font-size: 32px;
                 font-weight: 900;
                 color: #111827;
-                margin-bottom: 2px;
+                margin-bottom: 4px;
             }
 
             .receipt-subtitle {
                 text-align: center;
-                font-size: 15px;
+                font-size: 16px;
                 color: #374151;
-                margin-bottom: 18px;
+                margin-bottom: 8px;
+            }
+
+            .receipt-note {
+                text-align: center;
+                font-size: 13px;
+                color: #6b7280;
+                margin-bottom: 22px;
             }
 
             .receipt-line {
                 border-top: 2px solid #d4af37;
-                margin: 16px 0;
+                margin: 18px 0;
             }
 
-            .receipt-row {
-                display: flex;
-                justify-content: space-between;
-                margin: 8px 0;
+            .receipt-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px 28px;
+                margin-bottom: 14px;
+            }
+
+            .receipt-item {
                 font-size: 16px;
+                line-height: 1.6;
             }
 
             .receipt-label {
-                font-weight: 700;
+                font-weight: 800;
                 color: #111827;
             }
 
+            .receipt-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 18px;
+                margin-bottom: 18px;
+            }
+
+            .receipt-table th {
+                background: #111827;
+                color: #ffffff;
+                padding: 10px;
+                text-align: left;
+                font-size: 14px;
+            }
+
+            .receipt-table td {
+                border-bottom: 1px solid #d1d5db;
+                padding: 10px;
+                font-size: 15px;
+            }
+
             .receipt-total {
-                font-size: 24px;
+                text-align: right;
+                font-size: 26px;
                 font-weight: 900;
                 color: #111827;
-                text-align: right;
-                margin-top: 16px;
+                margin-top: 18px;
             }
 
             .receipt-footer {
                 text-align: center;
                 font-size: 13px;
                 color: #4b5563;
-                margin-top: 18px;
+                margin-top: 22px;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -178,11 +213,9 @@ def generar_texto_comprobante(venta):
 FERRETERÍA HELOIM
 COMPROBANTE INTERNO DE VENTA
 
-----------------------------------------
 Venta: {venta["Venta"]}
 Fecha: {venta["Fecha"]}
 Método de pago: {venta["Método de pago"]}
-----------------------------------------
 
 Producto: {venta["Producto"]}
 Código: {venta["Código"]}
@@ -190,10 +223,9 @@ Cantidad: {venta["Cantidad"]}
 Precio unitario: {venta["Precio unitario"]}
 Total: {venta["Total"]}
 
-----------------------------------------
 Documento interno de control.
+Este comprobante no sustituye factura fiscal.
 Gracias por su compra.
-----------------------------------------
 """
     return texto
 
@@ -334,61 +366,62 @@ def mostrar_comprobantes():
 
         venta = opciones[venta_seleccionada]
 
-        st.markdown(f"""
-            <div class="receipt-box">
-                <div class="receipt-title">FERRETERÍA HELOIM</div>
-                <div class="receipt-subtitle">Comprobante interno de venta</div>
+        venta_numero = html.escape(str(venta["Venta"]))
+        producto = html.escape(str(venta["Producto"]))
+        codigo = html.escape(str(venta["Código"]))
+        cantidad = html.escape(str(venta["Cantidad"]))
+        precio_unitario = html.escape(str(venta["Precio unitario"]))
+        total = html.escape(str(venta["Total"]))
+        metodo_pago = html.escape(str(venta["Método de pago"]))
+        fecha = html.escape(str(venta["Fecha"]))
 
-                <div class="receipt-line"></div>
+        comprobante_html = f"""
+<div class="receipt-box">
+    <div class="receipt-title">FERRETERÍA HELOIM</div>
+    <div class="receipt-subtitle">Comprobante interno de venta</div>
+    <div class="receipt-note">Documento interno de control. No sustituye factura fiscal.</div>
 
-                <div class="receipt-row">
-                    <span class="receipt-label">Venta:</span>
-                    <span>{venta["Venta"]}</span>
-                </div>
+    <div class="receipt-line"></div>
 
-                <div class="receipt-row">
-                    <span class="receipt-label">Fecha:</span>
-                    <span>{venta["Fecha"]}</span>
-                </div>
+    <div class="receipt-grid">
+        <div class="receipt-item"><span class="receipt-label">Venta:</span> {venta_numero}</div>
+        <div class="receipt-item"><span class="receipt-label">Fecha:</span> {fecha}</div>
+        <div class="receipt-item"><span class="receipt-label">Método de pago:</span> {metodo_pago}</div>
+        <div class="receipt-item"><span class="receipt-label">Estado:</span> Registrada</div>
+    </div>
 
-                <div class="receipt-row">
-                    <span class="receipt-label">Método de pago:</span>
-                    <span>{venta["Método de pago"]}</span>
-                </div>
+    <table class="receipt-table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Código</th>
+                <th>Cantidad</th>
+                <th>Precio unitario</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{producto}</td>
+                <td>{codigo}</td>
+                <td>{cantidad}</td>
+                <td>{precio_unitario}</td>
+                <td>{total}</td>
+            </tr>
+        </tbody>
+    </table>
 
-                <div class="receipt-line"></div>
+    <div class="receipt-total">TOTAL: {total}</div>
 
-                <div class="receipt-row">
-                    <span class="receipt-label">Producto:</span>
-                    <span>{venta["Producto"]}</span>
-                </div>
+    <div class="receipt-line"></div>
 
-                <div class="receipt-row">
-                    <span class="receipt-label">Código:</span>
-                    <span>{venta["Código"]}</span>
-                </div>
+    <div class="receipt-footer">
+        Gracias por su compra. Ferretería HELOIM.
+    </div>
+</div>
+"""
 
-                <div class="receipt-row">
-                    <span class="receipt-label">Cantidad:</span>
-                    <span>{venta["Cantidad"]}</span>
-                </div>
-
-                <div class="receipt-row">
-                    <span class="receipt-label">Precio unitario:</span>
-                    <span>{venta["Precio unitario"]}</span>
-                </div>
-
-                <div class="receipt-line"></div>
-
-                <div class="receipt-total">
-                    TOTAL: {venta["Total"]}
-                </div>
-
-                <div class="receipt-footer">
-                    Documento interno de control. Gracias por su compra.
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(comprobante_html, unsafe_allow_html=True)
 
         texto_comprobante = generar_texto_comprobante(venta)
 
