@@ -1,7 +1,6 @@
 from modulos.config.conexion import obtener_conexion
 import streamlit as st
 import pandas as pd
-import html
 
 
 # =========================================================
@@ -54,98 +53,6 @@ def aplicar_estilo_luxury():
                 font-size: 23px;
                 font-weight: 800;
                 margin-bottom: 12px;
-            }
-
-            .receipt-box {
-                background: #ffffff;
-                color: #111827;
-                border: 2px solid #d4af37;
-                border-radius: 16px;
-                padding: 32px;
-                margin-top: 20px;
-                font-family: Arial, sans-serif;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-                max-width: 850px;
-            }
-
-            .receipt-title {
-                text-align: center;
-                font-size: 32px;
-                font-weight: 900;
-                color: #111827;
-                margin-bottom: 4px;
-            }
-
-            .receipt-subtitle {
-                text-align: center;
-                font-size: 16px;
-                color: #374151;
-                margin-bottom: 8px;
-            }
-
-            .receipt-note {
-                text-align: center;
-                font-size: 13px;
-                color: #6b7280;
-                margin-bottom: 22px;
-            }
-
-            .receipt-line {
-                border-top: 2px solid #d4af37;
-                margin: 18px 0;
-            }
-
-            .receipt-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 12px 28px;
-                margin-bottom: 14px;
-            }
-
-            .receipt-item {
-                font-size: 16px;
-                line-height: 1.6;
-            }
-
-            .receipt-label {
-                font-weight: 800;
-                color: #111827;
-            }
-
-            .receipt-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 18px;
-                margin-bottom: 18px;
-            }
-
-            .receipt-table th {
-                background: #111827;
-                color: #ffffff;
-                padding: 10px;
-                text-align: left;
-                font-size: 14px;
-            }
-
-            .receipt-table td {
-                border-bottom: 1px solid #d1d5db;
-                padding: 10px;
-                font-size: 15px;
-            }
-
-            .receipt-total {
-                text-align: right;
-                font-size: 26px;
-                font-weight: 900;
-                color: #111827;
-                margin-top: 18px;
-            }
-
-            .receipt-footer {
-                text-align: center;
-                font-size: 13px;
-                color: #4b5563;
-                margin-top: 22px;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -366,62 +273,54 @@ def mostrar_comprobantes():
 
         venta = opciones[venta_seleccionada]
 
-        venta_numero = html.escape(str(venta["Venta"]))
-        producto = html.escape(str(venta["Producto"]))
-        codigo = html.escape(str(venta["Código"]))
-        cantidad = html.escape(str(venta["Cantidad"]))
-        precio_unitario = html.escape(str(venta["Precio unitario"]))
-        total = html.escape(str(venta["Total"]))
-        metodo_pago = html.escape(str(venta["Método de pago"]))
-        fecha = html.escape(str(venta["Fecha"]))
+        st.divider()
 
-        comprobante_html = f"""
-<div class="receipt-box">
-    <div class="receipt-title">FERRETERÍA HELOIM</div>
-    <div class="receipt-subtitle">Comprobante interno de venta</div>
-    <div class="receipt-note">Documento interno de control. No sustituye factura fiscal.</div>
+        # =================================================
+        # COMPROBANTE VISUAL SIN HTML
+        # =================================================
 
-    <div class="receipt-line"></div>
+        st.markdown(
+            '<div class="section-label">Vista del comprobante</div>',
+            unsafe_allow_html=True
+        )
 
-    <div class="receipt-grid">
-        <div class="receipt-item"><span class="receipt-label">Venta:</span> {venta_numero}</div>
-        <div class="receipt-item"><span class="receipt-label">Fecha:</span> {fecha}</div>
-        <div class="receipt-item"><span class="receipt-label">Método de pago:</span> {metodo_pago}</div>
-        <div class="receipt-item"><span class="receipt-label">Estado:</span> Registrada</div>
-    </div>
+        with st.container(border=True):
 
-    <table class="receipt-table">
-        <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Código</th>
-                <th>Cantidad</th>
-                <th>Precio unitario</th>
-                <th>Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>{producto}</td>
-                <td>{codigo}</td>
-                <td>{cantidad}</td>
-                <td>{precio_unitario}</td>
-                <td>{total}</td>
-            </tr>
-        </tbody>
-    </table>
+            st.markdown("# FERRETERÍA HELOIM")
+            st.markdown("### Comprobante interno de venta")
+            st.caption("Documento interno de control. No sustituye factura fiscal.")
 
-    <div class="receipt-total">TOTAL: {total}</div>
+            st.divider()
 
-    <div class="receipt-line"></div>
+            col1, col2 = st.columns(2)
 
-    <div class="receipt-footer">
-        Gracias por su compra. Ferretería HELOIM.
-    </div>
-</div>
-"""
+            with col1:
+                st.write(f"**Venta:** {venta['Venta']}")
+                st.write(f"**Método de pago:** {venta['Método de pago']}")
 
-        st.markdown(comprobante_html, unsafe_allow_html=True)
+            with col2:
+                st.write(f"**Fecha:** {venta['Fecha']}")
+                st.write("**Estado:** Registrada")
+
+            st.divider()
+
+            detalle = pd.DataFrame([
+                {
+                    "Producto": venta["Producto"],
+                    "Código": venta["Código"],
+                    "Cantidad": venta["Cantidad"],
+                    "Precio unitario": venta["Precio unitario"],
+                    "Total": venta["Total"]
+                }
+            ])
+
+            st.table(detalle)
+
+            st.markdown(f"## TOTAL: {venta['Total']}")
+
+            st.divider()
+
+            st.write("Gracias por su compra. Ferretería HELOIM.")
 
         texto_comprobante = generar_texto_comprobante(venta)
 
