@@ -8,10 +8,11 @@ from modulos.proveedores import mostrar_proveedores
 from modulos.reportes import mostrar_reportes
 from modulos.caja import mostrar_caja
 from modulos.comprobantes import mostrar_comprobantes
+from modulos.ajustes import mostrar_ajustes
 
 
 # =========================================================
-# CONFIGURACIÓN GENERAL DE LA APP
+# CONFIGURACIÓN GENERAL
 # =========================================================
 
 st.set_page_config(
@@ -22,99 +23,141 @@ st.set_page_config(
 
 
 # =========================================================
-# ESTILO VISUAL LUXURY
+# ESTILO GLOBAL PREMIUM
 # =========================================================
 
-def aplicar_estilo_luxury():
+def aplicar_estilo_global():
 
     st.markdown("""
         <style>
+            .stApp {
+                background: radial-gradient(circle at top left, #1f2937 0%, #0f172a 45%, #020617 100%);
+            }
+
+            [data-testid="stSidebar"] {
+                background: linear-gradient(180deg, #020617 0%, #0f172a 55%, #111827 100%);
+                border-right: 1px solid rgba(212, 175, 55, 0.35);
+            }
+
+            .main-header {
+                background: linear-gradient(135deg, #020617 0%, #111827 45%, #1f2937 100%);
+                border: 1px solid #d4af37;
+                border-radius: 26px;
+                padding: 34px;
+                margin-bottom: 30px;
+                box-shadow: 0 16px 42px rgba(0,0,0,0.50);
+            }
+
             .main-title {
-                font-size: 48px;
-                font-weight: 900;
+                font-size: 46px;
+                font-weight: 950;
                 color: #f8fafc;
-                margin-bottom: 6px;
+                margin-bottom: 8px;
+                letter-spacing: 0.5px;
             }
 
             .main-subtitle {
-                font-size: 17px;
+                font-size: 16px;
                 color: #cbd5e1;
-                margin-bottom: 20px;
-            }
-
-            .luxury-header {
-                background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #111827 100%);
-                border: 1px solid #d4af37;
-                border-radius: 22px;
-                padding: 30px;
-                margin-bottom: 28px;
-                box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+                margin-bottom: 16px;
             }
 
             .gold-line {
                 height: 3px;
-                background: linear-gradient(90deg, #d4af37, #f5d76e, #d4af37);
+                background: linear-gradient(90deg, #8b6f1d, #d4af37, #f5d76e, #d4af37);
                 border-radius: 20px;
                 margin-top: 18px;
             }
 
-            .luxury-sidebar-box {
+            .sidebar-card {
                 background: linear-gradient(135deg, #111827, #1f2937);
+                border: 1px solid rgba(212, 175, 55, 0.55);
                 border-left: 5px solid #d4af37;
-                padding: 18px;
-                border-radius: 14px;
+                padding: 20px;
+                border-radius: 18px;
                 color: #e5e7eb;
                 margin-bottom: 20px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.35);
             }
 
             .sidebar-title {
                 font-size: 24px;
-                font-weight: 800;
+                font-weight: 900;
                 color: #f8fafc;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
             }
 
-            .sidebar-text {
-                font-size: 15px;
-                color: #e5e7eb;
-                line-height: 1.7;
+            .sidebar-subtitle {
+                font-size: 14px;
+                color: #cbd5e1;
+                line-height: 1.6;
             }
 
-            .role-admin {
-                background-color: #14532d;
+            .admin-badge {
+                background: linear-gradient(135deg, #064e3b, #166534);
                 color: #bbf7d0;
-                padding: 14px 16px;
-                border-radius: 12px;
-                font-weight: 700;
+                padding: 13px 15px;
+                border-radius: 14px;
+                font-weight: 800;
                 margin-top: 12px;
+                border: 1px solid rgba(187, 247, 208, 0.35);
             }
 
-            .role-vendedor {
-                background-color: #1e3a8a;
-                color: #bfdbfe;
-                padding: 14px 16px;
-                border-radius: 12px;
-                font-weight: 700;
+            .seller-badge {
+                background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+                color: #dbeafe;
+                padding: 13px 15px;
+                border-radius: 14px;
+                font-weight: 800;
                 margin-top: 12px;
+                border: 1px solid rgba(219, 234, 254, 0.35);
+            }
+
+            .marvin-badge {
+                background: linear-gradient(135deg, #713f12, #a16207);
+                color: #fef3c7;
+                padding: 13px 15px;
+                border-radius: 14px;
+                font-weight: 800;
+                margin-top: 12px;
+                border: 1px solid rgba(254, 243, 199, 0.35);
+            }
+
+            div[data-testid="stTabs"] button {
+                font-weight: 800;
+                font-size: 15px;
+            }
+
+            .stButton button {
+                border-radius: 12px;
+                font-weight: 800;
+            }
+
+            .stDownloadButton button {
+                border-radius: 12px;
+                font-weight: 800;
             }
         </style>
     """, unsafe_allow_html=True)
 
 
 # =========================================================
-# FUNCIONES DE SESIÓN Y ROLES
+# SESIÓN Y ROLES
 # =========================================================
 
 def es_administrador():
-
     usuario = st.session_state.get("usuario", "").lower()
     rol = st.session_state.get("rol", "").lower()
 
-    return usuario in ["marvin", "marvin2"] or rol in ["administrador", "admin"]
+    return usuario == "marvin" or rol in ["administrador", "admin"]
+
+
+def es_marvin():
+    usuario = st.session_state.get("usuario", "").lower()
+    return usuario == "marvin"
 
 
 def cerrar_sesion():
-
     st.session_state["logueado"] = False
     st.session_state["usuario"] = ""
     st.session_state["nombre_usuario"] = ""
@@ -123,7 +166,6 @@ def cerrar_sesion():
 
 
 def inicializar_sesion():
-
     if "logueado" not in st.session_state:
         st.session_state["logueado"] = False
 
@@ -138,16 +180,12 @@ def inicializar_sesion():
 
 
 # =========================================================
-# INICIO DE LA APP
+# INICIO
 # =========================================================
 
-aplicar_estilo_luxury()
+aplicar_estilo_global()
 inicializar_sesion()
 
-
-# =========================================================
-# LOGIN
-# =========================================================
 
 if not st.session_state["logueado"]:
     mostrar_login()
@@ -161,11 +199,11 @@ if not st.session_state["logueado"]:
 with st.sidebar:
 
     st.markdown("""
-        <div class="luxury-sidebar-box">
+        <div class="sidebar-card">
             <div class="sidebar-title">🛠️ Ferretería HELOIM</div>
-            <div class="sidebar-text">
+            <div class="sidebar-subtitle">
                 Sistema de Gestión de Información<br>
-                Control operativo y administrativo.
+                Inventario • Ventas • Compras • Caja
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -173,32 +211,37 @@ with st.sidebar:
     st.write(f"**Usuario:** {st.session_state.get('nombre_usuario', '')}")
     st.write(f"**Rol:** {st.session_state.get('rol', '')}")
 
-    if es_administrador():
+    if es_marvin():
         st.markdown(
-            '<div class="role-admin">✅ Acceso completo de administrador</div>',
+            '<div class="marvin-badge">👑 Acceso principal de Marvin</div>',
+            unsafe_allow_html=True
+        )
+    elif es_administrador():
+        st.markdown(
+            '<div class="admin-badge">✅ Acceso administrativo</div>',
             unsafe_allow_html=True
         )
     else:
         st.markdown(
-            '<div class="role-vendedor">🛒 Acceso operativo de vendedor</div>',
+            '<div class="seller-badge">🛒 Acceso operativo de vendedor</div>',
             unsafe_allow_html=True
         )
 
     st.divider()
 
-    if st.button("🚪 Cerrar sesión"):
+    if st.button("🚪 Cerrar sesión", use_container_width=True):
         cerrar_sesion()
 
 
 # =========================================================
-# ENCABEZADO PRINCIPAL
+# ENCABEZADO
 # =========================================================
 
 st.markdown("""
-    <div class="luxury-header">
+    <div class="main-header">
         <div class="main-title">Sistema de Gestión de Información</div>
         <div class="main-subtitle">
-            Control de productos, ventas, comprobantes, compras, proveedores, reportes, caja, inventario y accesos por rol.
+            Plataforma administrativa para productos, ventas, comprobantes, compras, proveedores, reportes, caja y control de accesos.
         </div>
         <div class="gold-line"></div>
     </div>
@@ -211,38 +254,96 @@ st.markdown("""
 
 if es_administrador():
 
-    tab_productos, tab_ventas, tab_comprobantes, tab_compras, tab_proveedores, tab_reportes, tab_caja = st.tabs(
-        [
-            "📦 Productos",
-            "💰 Ventas",
-            "🧾 Comprobantes",
-            "🛒 Compras",
-            "🚚 Proveedores",
-            "📊 Reportes",
-            "💵 Caja"
-        ]
-    )
+    if es_marvin():
 
-    with tab_productos:
-        mostrar_venta()
+        (
+            tab_productos,
+            tab_ventas,
+            tab_comprobantes,
+            tab_compras,
+            tab_proveedores,
+            tab_reportes,
+            tab_caja,
+            tab_ajustes
+        ) = st.tabs(
+            [
+                "📦 Productos",
+                "💰 Ventas",
+                "🧾 Comprobantes",
+                "🛒 Compras",
+                "🚚 Proveedores",
+                "📊 Reportes",
+                "💵 Caja",
+                "⚙️ Ajustes"
+            ]
+        )
 
-    with tab_ventas:
-        mostrar_ventas()
+        with tab_productos:
+            mostrar_venta()
 
-    with tab_comprobantes:
-        mostrar_comprobantes()
+        with tab_ventas:
+            mostrar_ventas()
 
-    with tab_compras:
-        mostrar_compras()
+        with tab_comprobantes:
+            mostrar_comprobantes()
 
-    with tab_proveedores:
-        mostrar_proveedores()
+        with tab_compras:
+            mostrar_compras()
 
-    with tab_reportes:
-        mostrar_reportes()
+        with tab_proveedores:
+            mostrar_proveedores()
 
-    with tab_caja:
-        mostrar_caja()
+        with tab_reportes:
+            mostrar_reportes()
+
+        with tab_caja:
+            mostrar_caja()
+
+        with tab_ajustes:
+            mostrar_ajustes()
+
+    else:
+
+        (
+            tab_productos,
+            tab_ventas,
+            tab_comprobantes,
+            tab_compras,
+            tab_proveedores,
+            tab_reportes,
+            tab_caja
+        ) = st.tabs(
+            [
+                "📦 Productos",
+                "💰 Ventas",
+                "🧾 Comprobantes",
+                "🛒 Compras",
+                "🚚 Proveedores",
+                "📊 Reportes",
+                "💵 Caja"
+            ]
+        )
+
+        with tab_productos:
+            mostrar_venta()
+
+        with tab_ventas:
+            mostrar_ventas()
+
+        with tab_comprobantes:
+            mostrar_comprobantes()
+
+        with tab_compras:
+            mostrar_compras()
+
+        with tab_proveedores:
+            mostrar_proveedores()
+
+        with tab_reportes:
+            mostrar_reportes()
+
+        with tab_caja:
+            mostrar_caja()
 
 else:
 
