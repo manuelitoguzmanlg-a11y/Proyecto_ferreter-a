@@ -1,0 +1,17 @@
+VERSIÓN FINAL ESTABLE - SGI FERRETERÍA HELOIM
+
+Esta versión contiene:
+- Login por roles
+- Usuarios reales del documento
+- Ajustes exclusivos para Marvin
+- Productos e inventario
+- Ventas
+- Comprobantes
+- Compras
+- Proveedores
+- Reportes
+- Caja
+- Interfaz premium final
+
+No modificar esta versión sin hacer respaldo.
+Fecha: 20/06/2026
