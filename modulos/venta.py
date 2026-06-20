@@ -1,4 +1,4 @@
-from modulos.config.conexion import obtener_conexion, obtener_fecha_hora_el_salvador
+from modulos.config.conexion import obtener_conexion
 import streamlit as st
 import pandas as pd
 
@@ -160,6 +160,48 @@ def leer_codigo_desde_imagen(imagen):
 
 
 # =========================================================
+# LISTAS BASE
+# =========================================================
+
+CATEGORIAS = [
+    "Construcción",
+    "Fontanería",
+    "Electricidad",
+    "Pinturas",
+    "Automotriz",
+    "Herramientas",
+    "Carpintería",
+    "Otros",
+    "Sin categoría"
+]
+
+
+UBICACIONES = [
+    "Mostrador",
+    "Bodega interna",
+    "Patio de materiales",
+    "Estantería principal",
+    "Área de pinturas",
+    "Área eléctrica",
+    "Área de herramientas",
+    "No asignada"
+]
+
+
+TIPOS_CODIGO = [
+    "Con código de barras",
+    "Sin código de barras"
+]
+
+
+def obtener_indice(lista, valor):
+    if valor in lista:
+        return lista.index(valor)
+
+    return 0
+
+
+# =========================================================
 # MÓDULO PRINCIPAL DE PRODUCTOS
 # =========================================================
 
@@ -171,7 +213,7 @@ def mostrar_venta():
         <div class="luxury-card">
             <div class="luxury-title">📦 Gestión de Productos</div>
             <div class="luxury-subtitle">
-                Registro, búsqueda, clasificación, ubicación física y control de stock del inventario.
+                Registro, búsqueda, edición, clasificación, ubicación física y control de stock del inventario.
             </div>
             <div class="gold-line"></div>
             <div class="info-box">
@@ -181,151 +223,140 @@ def mostrar_venta():
         </div>
     """, unsafe_allow_html=True)
 
-    categorias = [
-        "Construcción",
-        "Fontanería",
-        "Electricidad",
-        "Pinturas",
-        "Automotriz",
-        "Herramientas",
-        "Carpintería",
-        "Otros"
-    ]
-
-    ubicaciones = [
-        "Mostrador",
-        "Bodega interna",
-        "Patio de materiales",
-        "Estantería principal",
-        "Área de pinturas",
-        "Área eléctrica",
-        "Área de herramientas",
-        "No asignada"
-    ]
-
     # =====================================================
     # REGISTRAR PRODUCTO
     # =====================================================
 
-    with st.expander("➕ Registrar nuevo producto", expanded=True):
+    if es_administrador():
 
-        st.markdown(
-            '<div class="section-label">Datos generales del producto</div>',
-            unsafe_allow_html=True
-        )
+        with st.expander("➕ Registrar nuevo producto", expanded=True):
 
-        with st.form("form_producto"):
-
-            nombre = st.text_input("Nombre del producto")
-
-            producto_sin_codigo = st.checkbox(
-                "Este producto no posee código de barras"
+            st.markdown(
+                '<div class="section-label">Datos generales del producto</div>',
+                unsafe_allow_html=True
             )
 
-            if producto_sin_codigo:
-                st.info(
-                    "El sistema generará un código interno automático para este producto."
-                )
-                codigo = ""
-            else:
-                codigo = st.text_input("Código del producto")
+            with st.form("form_producto"):
 
-            col1, col2 = st.columns(2)
+                nombre = st.text_input("Nombre del producto")
 
-            with col1:
-                categoria = st.selectbox(
-                    "Categoría del producto",
-                    categorias
+                producto_sin_codigo = st.checkbox(
+                    "Este producto no posee código de barras"
                 )
 
-                precio = st.number_input(
-                    "Precio de venta",
-                    min_value=0.0,
-                    step=0.01
-                )
-
-                stock = st.number_input(
-                    "Stock inicial",
-                    min_value=0,
-                    step=1
-                )
-
-            with col2:
-                ubicacion = st.selectbox(
-                    "Ubicación física",
-                    ubicaciones
-                )
-
-                stock_minimo = st.number_input(
-                    "Stock mínimo",
-                    min_value=0,
-                    value=5,
-                    step=1
-                )
-
-            guardar = st.form_submit_button("💾 Guardar producto")
-
-            if guardar:
-
-                if nombre.strip() == "":
-                    st.warning("⚠️ Debés completar el nombre del producto.")
-
-                elif not producto_sin_codigo and codigo.strip() == "":
-                    st.warning("⚠️ Debés ingresar el código del producto o marcar que no posee código.")
-
+                if producto_sin_codigo:
+                    st.info(
+                        "El sistema generará un código interno automático para este producto."
+                    )
+                    codigo = ""
                 else:
+                    codigo = st.text_input("Código del producto")
 
-                    try:
-                        con = obtener_conexion()
-                        cursor = con.cursor()
+                col1, col2 = st.columns(2)
 
-                        asegurar_columnas_producto(cursor)
-                        con.commit()
+                with col1:
+                    categoria = st.selectbox(
+                        "Categoría del producto",
+                        CATEGORIAS
+                    )
 
-                        if producto_sin_codigo:
-                            codigo_final = generar_codigo_interno(cursor)
-                            tipo_codigo = "Sin código de barras"
-                        else:
-                            codigo_final = codigo.strip()
-                            tipo_codigo = "Con código de barras"
+                    precio = st.number_input(
+                        "Precio de venta",
+                        min_value=0.0,
+                        step=0.01
+                    )
 
-                        cursor.execute("""
-                            INSERT INTO Producto
-                            (
-                                Nombre,
-                                Codigo,
-                                Precio,
-                                Stock,
-                                Stock_Minimo,
-                                Categoria,
-                                Ubicacion,
-                                Tipo_Codigo
-                            )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (
-                            nombre,
-                            codigo_final,
-                            precio,
-                            stock,
-                            stock_minimo,
-                            categoria,
-                            ubicacion,
-                            tipo_codigo
-                        ))
+                    stock = st.number_input(
+                        "Stock inicial",
+                        min_value=0,
+                        step=1
+                    )
 
-                        con.commit()
+                with col2:
+                    ubicacion = st.selectbox(
+                        "Ubicación física",
+                        UBICACIONES
+                    )
 
-                        cursor.close()
-                        con.close()
+                    stock_minimo = st.number_input(
+                        "Stock mínimo",
+                        min_value=0,
+                        value=5,
+                        step=1
+                    )
 
-                        st.success(
-                            f"✅ Producto guardado correctamente. Código asignado: {codigo_final}"
+                guardar = st.form_submit_button("💾 Guardar producto")
+
+                if guardar:
+
+                    if nombre.strip() == "":
+                        st.warning("⚠️ Debés completar el nombre del producto.")
+
+                    elif not producto_sin_codigo and codigo.strip() == "":
+                        st.warning(
+                            "⚠️ Debés ingresar el código del producto o marcar que no posee código."
                         )
 
-                        st.rerun()
+                    else:
 
-                    except Exception as e:
-                        st.error(f"❌ Error al guardar producto: {e}")
+                        try:
+                            con = obtener_conexion()
+                            cursor = con.cursor()
+
+                            asegurar_columnas_producto(cursor)
+                            con.commit()
+
+                            if producto_sin_codigo:
+                                codigo_final = generar_codigo_interno(cursor)
+                                tipo_codigo = "Sin código de barras"
+                            else:
+                                codigo_final = codigo.strip()
+                                tipo_codigo = "Con código de barras"
+
+                            cursor.execute("""
+                                INSERT INTO Producto
+                                (
+                                    Nombre,
+                                    Codigo,
+                                    Precio,
+                                    Stock,
+                                    Stock_Minimo,
+                                    Categoria,
+                                    Ubicacion,
+                                    Tipo_Codigo
+                                )
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            """, (
+                                nombre,
+                                codigo_final,
+                                precio,
+                                stock,
+                                stock_minimo,
+                                categoria,
+                                ubicacion,
+                                tipo_codigo
+                            ))
+
+                            con.commit()
+
+                            cursor.close()
+                            con.close()
+
+                            st.success(
+                                f"✅ Producto guardado correctamente. Código asignado: {codigo_final}"
+                            )
+
+                            st.rerun()
+
+                        except Exception as e:
+                            st.error(f"❌ Error al guardar producto: {e}")
+
+    else:
+
+        st.info(
+            "ℹ️ Como vendedor, podés consultar productos y verificar stock. "
+            "El registro, edición y eliminación quedan reservados para administradores."
+        )
 
     st.divider()
 
@@ -560,10 +591,6 @@ def mostrar_venta():
 
                 st.divider()
 
-                # =========================================
-                # RESUMEN DE INVENTARIO
-                # =========================================
-
                 total_productos = len(datos)
                 stock_bajo = len([x for x in datos if x["Estado"] == "Stock bajo"])
                 agotados = len([x for x in datos if x["Estado"] == "Agotado"])
@@ -579,32 +606,252 @@ def mostrar_venta():
                 with col3:
                     st.metric("Productos agotados", agotados)
 
-                # =========================================
-                # ELIMINAR PRODUCTO SOLO ADMIN
-                # =========================================
+            else:
+                st.info("No hay productos registrados.")
 
-                if es_administrador():
+            cursor.close()
+            con.close()
 
-                    st.divider()
+        except Exception as e:
+            st.error(f"❌ Error al cargar productos: {e}")
 
-                    st.markdown(
-                        '<div class="section-label">🗑️ Eliminar producto</div>',
-                        unsafe_allow_html=True
+    # =====================================================
+    # EDITAR PRODUCTO SOLO ADMINISTRADOR
+    # =====================================================
+
+    if es_administrador():
+
+        st.divider()
+
+        with st.expander("✏️ Editar producto", expanded=False):
+
+            st.markdown(
+                '<div class="section-label">Actualizar información del inventario</div>',
+                unsafe_allow_html=True
+            )
+
+            try:
+                con = obtener_conexion()
+                cursor = con.cursor()
+
+                asegurar_columnas_producto(cursor)
+                con.commit()
+
+                cursor.execute("""
+                    SELECT
+                        Id_Producto,
+                        Nombre,
+                        Codigo,
+                        Precio,
+                        Stock,
+                        Stock_Minimo,
+                        Categoria,
+                        Ubicacion,
+                        Tipo_Codigo
+                    FROM Producto
+                    ORDER BY Nombre ASC
+                """)
+
+                productos = cursor.fetchall()
+
+                if productos:
+
+                    opciones_editar = {}
+
+                    for producto in productos:
+                        id_producto = producto[0]
+                        nombre = producto[1]
+                        codigo = producto[2]
+                        stock = producto[4]
+
+                        texto = f"{nombre} | Código: {codigo} | Stock: {stock}"
+                        opciones_editar[texto] = producto
+
+                    producto_seleccionado = st.selectbox(
+                        "Seleccione el producto que desea editar",
+                        list(opciones_editar.keys()),
+                        key="producto_editar_select"
                     )
 
-                    st.warning(
-                        "Elimine productos únicamente si fueron registrados por error."
-                    )
+                    producto_actual = opciones_editar[producto_seleccionado]
+
+                    id_producto_actual = producto_actual[0]
+                    nombre_actual = producto_actual[1]
+                    codigo_actual = producto_actual[2]
+                    precio_actual = producto_actual[3]
+                    stock_actual = producto_actual[4]
+                    stock_minimo_actual = producto_actual[5]
+                    categoria_actual = producto_actual[6] or "Sin categoría"
+                    ubicacion_actual = producto_actual[7] or "No asignada"
+                    tipo_codigo_actual = producto_actual[8] or "Con código de barras"
+
+                    with st.form("form_editar_producto"):
+
+                        nuevo_nombre = st.text_input(
+                            "Nombre del producto",
+                            value=nombre_actual
+                        )
+
+                        nuevo_tipo_codigo = st.selectbox(
+                            "Tipo de código",
+                            TIPOS_CODIGO,
+                            index=obtener_indice(TIPOS_CODIGO, tipo_codigo_actual)
+                        )
+
+                        if nuevo_tipo_codigo == "Sin código de barras":
+                            st.info(
+                                "Podés conservar el código interno actual o generar uno nuevo manualmente si lo necesitás."
+                            )
+
+                        nuevo_codigo = st.text_input(
+                            "Código del producto",
+                            value=codigo_actual
+                        )
+
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+
+                            nueva_categoria = st.selectbox(
+                                "Categoría",
+                                CATEGORIAS,
+                                index=obtener_indice(CATEGORIAS, categoria_actual)
+                            )
+
+                            nuevo_precio = st.number_input(
+                                "Precio de venta",
+                                min_value=0.0,
+                                value=float(precio_actual),
+                                step=0.01
+                            )
+
+                            nuevo_stock = st.number_input(
+                                "Stock actual",
+                                min_value=0,
+                                value=int(stock_actual),
+                                step=1
+                            )
+
+                        with col2:
+
+                            nueva_ubicacion = st.selectbox(
+                                "Ubicación física",
+                                UBICACIONES,
+                                index=obtener_indice(UBICACIONES, ubicacion_actual)
+                            )
+
+                            nuevo_stock_minimo = st.number_input(
+                                "Stock mínimo",
+                                min_value=0,
+                                value=int(stock_minimo_actual),
+                                step=1
+                            )
+
+                        actualizar = st.form_submit_button("💾 Guardar cambios")
+
+                        if actualizar:
+
+                            if nuevo_nombre.strip() == "":
+                                st.warning("⚠️ El nombre del producto no puede quedar vacío.")
+
+                            elif nuevo_codigo.strip() == "":
+                                st.warning("⚠️ El código del producto no puede quedar vacío.")
+
+                            else:
+
+                                try:
+                                    cursor.execute("""
+                                        UPDATE Producto
+                                        SET
+                                            Nombre = %s,
+                                            Codigo = %s,
+                                            Precio = %s,
+                                            Stock = %s,
+                                            Stock_Minimo = %s,
+                                            Categoria = %s,
+                                            Ubicacion = %s,
+                                            Tipo_Codigo = %s
+                                        WHERE Id_Producto = %s
+                                    """, (
+                                        nuevo_nombre.strip(),
+                                        nuevo_codigo.strip(),
+                                        nuevo_precio,
+                                        nuevo_stock,
+                                        nuevo_stock_minimo,
+                                        nueva_categoria,
+                                        nueva_ubicacion,
+                                        nuevo_tipo_codigo,
+                                        id_producto_actual
+                                    ))
+
+                                    con.commit()
+
+                                    st.success("✅ Producto actualizado correctamente.")
+                                    st.rerun()
+
+                                except Exception as e:
+                                    st.error(f"❌ Error al actualizar producto: {e}")
+
+                else:
+                    st.info("No hay productos registrados para editar.")
+
+                cursor.close()
+                con.close()
+
+            except Exception as e:
+                st.error(f"❌ Error al cargar editor de productos: {e}")
+
+    # =====================================================
+    # ELIMINAR PRODUCTO SOLO ADMINISTRADOR
+    # =====================================================
+
+    if es_administrador():
+
+        st.divider()
+
+        with st.expander("🗑️ Eliminar producto", expanded=False):
+
+            st.markdown(
+                '<div class="section-label">Eliminar producto del inventario</div>',
+                unsafe_allow_html=True
+            )
+
+            st.warning(
+                "Elimine productos únicamente si fueron registrados por error. "
+                "Si el producto tiene ventas o compras asociadas, puede que no se pueda eliminar."
+            )
+
+            try:
+                con = obtener_conexion()
+                cursor = con.cursor()
+
+                asegurar_columnas_producto(cursor)
+                con.commit()
+
+                cursor.execute("""
+                    SELECT
+                        Id_Producto,
+                        Nombre,
+                        Codigo,
+                        Stock
+                    FROM Producto
+                    ORDER BY Nombre ASC
+                """)
+
+                productos = cursor.fetchall()
+
+                if productos:
 
                     opciones_eliminar = {}
 
-                    for fila in datos:
-                        texto = (
-                            f"{fila['Producto']} | Código: {fila['Código']} | "
-                            f"Stock: {fila['Stock']}"
-                        )
+                    for producto in productos:
+                        id_producto = producto[0]
+                        nombre = producto[1]
+                        codigo = producto[2]
+                        stock = producto[3]
 
-                        opciones_eliminar[texto] = fila["ID interno"]
+                        texto = f"{nombre} | Código: {codigo} | Stock: {stock}"
+                        opciones_eliminar[texto] = id_producto
 
                     producto_eliminar = st.selectbox(
                         "Seleccione el producto que desea eliminar",
@@ -646,13 +893,10 @@ def mostrar_venta():
                             st.error(f"Detalle: {e}")
 
                 else:
-                    st.info("ℹ️ Solo los administradores pueden eliminar productos.")
+                    st.info("No hay productos registrados para eliminar.")
 
-            else:
-                st.info("No hay productos registrados.")
+                cursor.close()
+                con.close()
 
-            cursor.close()
-            con.close()
-
-        except Exception as e:
-            st.error(f"❌ Error al cargar productos: {e}")
+            except Exception as e:
+                st.error(f"❌ Error al cargar eliminación de productos: {e}")
