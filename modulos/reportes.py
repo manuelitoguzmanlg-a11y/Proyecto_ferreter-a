@@ -205,7 +205,8 @@ def mostrar_reportes():
         <div class="luxury-card">
             <div class="luxury-title">📊 Reportes e Inteligencia de Negocio</div>
             <div class="luxury-subtitle">
-                Panel ejecutivo para analizar ventas, compras, inventario, proveedores y rotación de productos.
+                Panel ejecutivo para analizar ventas, compras, inventario, proveedores, rotación de productos
+                y comportamiento mensual del negocio.
             </div>
             <div class="gold-line"></div>
             <div class="info-box">
@@ -245,16 +246,18 @@ def mostrar_reportes():
 
         cursor.execute("""
             SELECT
-                COUNT(*) AS Registros,
-                COALESCE(SUM(Cantidad), 0) AS Unidades,
+                COUNT(v.Id_Venta) AS Registros,
+                COALESCE(SUM(v.Cantidad), 0) AS Unidades,
                 COALESCE(SUM(
                     CASE
-                        WHEN Total IS NULL OR Total = 0
-                        THEN Cantidad * Precio_Unitario
-                        ELSE Total
+                        WHEN v.Total IS NULL OR v.Total = 0
+                        THEN v.Cantidad * p.Precio
+                        ELSE v.Total
                     END
                 ), 0) AS Ingresos
-            FROM Venta
+            FROM Venta v
+            INNER JOIN Producto p
+                ON v.Id_Producto = p.Id_Producto
         """)
         resumen_ventas = cursor.fetchone()
 
@@ -307,8 +310,236 @@ def mostrar_reportes():
 
         st.info(
             f"📌 Resultado estimado simple: ${resultado_estimado:.2f}. "
-            "Este dato compara ingresos por ventas contra compras registradas, no sustituye un cálculo contable formal."
+            "Este dato compara ingresos por ventas contra compras registradas; no sustituye un cálculo contable formal."
         )
+
+        st.divider()
+
+        # =================================================
+        # VENTAS MENSUALES
+        # =================================================
+
+        with st.expander("📅 Ventas mensuales", expanded=True):
+
+            cursor.execute("""
+                SELECT
+                    DATE_FORMAT(v.Fecha, '%Y-%m') AS Mes,
+                    COUNT(v.Id_Venta) AS Registros,
+                    COALESCE(SUM(v.Cantidad), 0) AS Unidades_Vendidas,
+                    COALESCE(SUM(
+                        CASE
+                            WHEN v.Total IS NULL OR v.Total = 0
+                            THEN v.Cantidad * p.Precio
+                            ELSE v.Total
+                        END
+                    ), 0) AS Ingresos
+                FROM Venta v
+                INNER JOIN Producto p
+                    ON v.Id_Producto = p.Id_Producto
+                WHERE v.Fecha IS NOT NULL
+                GROUP BY DATE_FORMAT(v.Fecha, '%Y-%m')
+                ORDER BY Mes DESC
+            """)
+
+            ventas_mensuales = cursor.fetchall()
+
+            if ventas_mensuales:
+
+                datos = []
+
+                for fila in ventas_mensuales:
+                    datos.append({
+                        "Mes": fila[0],
+                        "Registros de ventas": fila[1],
+                        "Unidades vendidas": fila[2],
+                        "Ingresos del mes": f"${float(fila[3]):.2f}"
+                    })
+
+                df_ventas_mensuales = pd.DataFrame(datos)
+
+                st.dataframe(
+                    df_ventas_mensuales,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                cursor.execute("""
+                    SELECT
+                        DATE_FORMAT(v.Fecha, '%Y-%m') AS Mes,
+                        COALESCE(SUM(
+                            CASE
+                                WHEN v.Total IS NULL OR v.Total = 0
+                                THEN v.Cantidad * p.Precio
+                                ELSE v.Total
+                            END
+                        ), 0) AS Ingresos
+                    FROM Venta v
+                    INNER JOIN Producto p
+                        ON v.Id_Producto = p.Id_Producto
+                    WHERE v.Fecha IS NOT NULL
+                    GROUP BY DATE_FORMAT(v.Fecha, '%Y-%m')
+                    ORDER BY Ingresos DESC
+                    LIMIT 1
+                """)
+
+                mejor_mes = cursor.fetchone()
+
+                if mejor_mes:
+                    st.success(
+                        f"🏆 Mes con mayores ingresos: **{mejor_mes[0]}** con **${float(mejor_mes[1]):.2f}**."
+                    )
+
+            else:
+                st.info("Todavía no hay ventas con fecha registrada.")
+
+        st.divider()
+
+        # =================================================
+        # COMPRAS MENSUALES
+        # =================================================
+
+        with st.expander("📅 Compras mensuales", expanded=False):
+
+            cursor.execute("""
+                SELECT
+                    DATE_FORMAT(Fecha, '%Y-%m') AS Mes,
+                    COUNT(Id_Compra) AS Registros,
+                    COALESCE(SUM(Cantidad), 0) AS Unidades_Compradas,
+                    COALESCE(SUM(Cantidad * Precio_Compra), 0) AS Monto_Comprado
+                FROM Compra
+                WHERE Fecha IS NOT NULL
+                GROUP BY DATE_FORMAT(Fecha, '%Y-%m')
+                ORDER BY Mes DESC
+            """)
+
+            compras_mensuales = cursor.fetchall()
+
+            if compras_mensuales:
+
+                datos = []
+
+                for fila in compras_mensuales:
+                    datos.append({
+                        "Mes": fila[0],
+                        "Registros de compras": fila[1],
+                        "Unidades compradas": fila[2],
+                        "Monto comprado": f"${float(fila[3]):.2f}"
+                    })
+
+                df_compras_mensuales = pd.DataFrame(datos)
+
+                st.dataframe(
+                    df_compras_mensuales,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                cursor.execute("""
+                    SELECT
+                        DATE_FORMAT(Fecha, '%Y-%m') AS Mes,
+                        COALESCE(SUM(Cantidad * Precio_Compra), 0) AS Monto_Comprado
+                    FROM Compra
+                    WHERE Fecha IS NOT NULL
+                    GROUP BY DATE_FORMAT(Fecha, '%Y-%m')
+                    ORDER BY Monto_Comprado DESC
+                    LIMIT 1
+                """)
+
+                mes_mayor_compra = cursor.fetchone()
+
+                if mes_mayor_compra:
+                    st.warning(
+                        f"📦 Mes con mayor monto de compras: **{mes_mayor_compra[0]}** con **${float(mes_mayor_compra[1]):.2f}**."
+                    )
+
+            else:
+                st.info("Todavía no hay compras con fecha registrada.")
+
+        st.divider()
+
+        # =================================================
+        # COMPARATIVO MENSUAL
+        # =================================================
+
+        with st.expander("📈 Comparativo mensual ventas vs compras", expanded=False):
+
+            cursor.execute("""
+                SELECT
+                    meses.Mes,
+                    COALESCE(v.Ingresos, 0) AS Ingresos_Ventas,
+                    COALESCE(c.Monto_Compras, 0) AS Monto_Compras,
+                    COALESCE(v.Ingresos, 0) - COALESCE(c.Monto_Compras, 0) AS Resultado_Estimado
+                FROM
+                (
+                    SELECT DATE_FORMAT(Fecha, '%Y-%m') AS Mes
+                    FROM Venta
+                    WHERE Fecha IS NOT NULL
+
+                    UNION
+
+                    SELECT DATE_FORMAT(Fecha, '%Y-%m') AS Mes
+                    FROM Compra
+                    WHERE Fecha IS NOT NULL
+                ) meses
+                LEFT JOIN
+                (
+                    SELECT
+                        DATE_FORMAT(v.Fecha, '%Y-%m') AS Mes,
+                        COALESCE(SUM(
+                            CASE
+                                WHEN v.Total IS NULL OR v.Total = 0
+                                THEN v.Cantidad * p.Precio
+                                ELSE v.Total
+                            END
+                        ), 0) AS Ingresos
+                    FROM Venta v
+                    INNER JOIN Producto p
+                        ON v.Id_Producto = p.Id_Producto
+                    WHERE v.Fecha IS NOT NULL
+                    GROUP BY DATE_FORMAT(v.Fecha, '%Y-%m')
+                ) v
+                    ON meses.Mes = v.Mes
+                LEFT JOIN
+                (
+                    SELECT
+                        DATE_FORMAT(Fecha, '%Y-%m') AS Mes,
+                        COALESCE(SUM(Cantidad * Precio_Compra), 0) AS Monto_Compras
+                    FROM Compra
+                    WHERE Fecha IS NOT NULL
+                    GROUP BY DATE_FORMAT(Fecha, '%Y-%m')
+                ) c
+                    ON meses.Mes = c.Mes
+                ORDER BY meses.Mes DESC
+            """)
+
+            comparativo_mensual = cursor.fetchall()
+
+            if comparativo_mensual:
+
+                datos = []
+
+                for fila in comparativo_mensual:
+                    datos.append({
+                        "Mes": fila[0],
+                        "Ingresos por ventas": f"${float(fila[1]):.2f}",
+                        "Monto en compras": f"${float(fila[2]):.2f}",
+                        "Resultado estimado": f"${float(fila[3]):.2f}"
+                    })
+
+                df_comparativo = pd.DataFrame(datos)
+
+                st.dataframe(
+                    df_comparativo,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                st.info(
+                    "Este comparativo mensual permite observar el comportamiento entre ventas y compras registradas."
+                )
+
+            else:
+                st.info("Todavía no hay información mensual para comparar.")
 
         st.divider()
 
@@ -316,7 +547,7 @@ def mostrar_reportes():
         # INVENTARIO CRÍTICO
         # =================================================
 
-        with st.expander("⚠️ Productos con stock bajo o agotado", expanded=True):
+        with st.expander("⚠️ Productos con stock bajo o agotado", expanded=False):
 
             cursor.execute("""
                 SELECT
@@ -480,18 +711,20 @@ def mostrar_reportes():
 
             cursor.execute("""
                 SELECT
-                    COALESCE(Metodo_Pago, 'No especificado') AS Metodo,
-                    COUNT(*) AS Registros,
-                    COALESCE(SUM(Cantidad), 0) AS Unidades,
+                    COALESCE(v.Metodo_Pago, 'No especificado') AS Metodo,
+                    COUNT(v.Id_Venta) AS Registros,
+                    COALESCE(SUM(v.Cantidad), 0) AS Unidades,
                     COALESCE(SUM(
                         CASE
-                            WHEN Total IS NULL OR Total = 0
-                            THEN Cantidad * Precio_Unitario
-                            ELSE Total
+                            WHEN v.Total IS NULL OR v.Total = 0
+                            THEN v.Cantidad * p.Precio
+                            ELSE v.Total
                         END
                     ), 0) AS Ingresos
-                FROM Venta
-                GROUP BY Metodo_Pago
+                FROM Venta v
+                INNER JOIN Producto p
+                    ON v.Id_Producto = p.Id_Producto
+                GROUP BY v.Metodo_Pago
                 ORDER BY Ingresos DESC
             """)
 
