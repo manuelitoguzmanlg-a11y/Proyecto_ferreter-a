@@ -1,10 +1,6 @@
 import streamlit as st
 
 
-# =========================================================
-# USUARIOS DEL SISTEMA SEGÚN DOCUMENTO DEL PROYECTO
-# =========================================================
-
 USUARIOS = {
     "marvin": {
         "password": "1234",
@@ -29,11 +25,8 @@ USUARIOS = {
 }
 
 
-# =========================================================
-# ESTILO VISUAL LUXURY
-# =========================================================
+def mostrar_login():
 
-def aplicar_estilo_login():
     st.markdown("""
         <style>
             .login-card {
@@ -42,7 +35,7 @@ def aplicar_estilo_login():
                 border-radius: 22px;
                 padding: 34px;
                 margin: 40px auto 20px auto;
-                max-width: 620px;
+                max-width: 650px;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.40);
             }
 
@@ -79,15 +72,6 @@ def aplicar_estilo_login():
             }
         </style>
     """, unsafe_allow_html=True)
-
-
-# =========================================================
-# LOGIN
-# =========================================================
-
-def mostrar_login():
-
-    aplicar_estilo_login()
 
     st.markdown("""
         <div class="login-card">
