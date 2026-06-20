@@ -143,7 +143,7 @@ def mostrar_ventas():
             <div class="gold-line"></div>
             <div class="info-box">
                 Este módulo permite registrar ventas, descontar inventario automáticamente y generar
-                información útil para control de caja y análisis de productos más vendidos.
+                información útil para control de caja, reportes mensuales y análisis de productos vendidos.
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -215,8 +215,6 @@ def mostrar_ventas():
             datos_producto = opciones_productos[producto_seleccionado]
 
             id_producto = datos_producto["id_producto"]
-            nombre_producto = datos_producto["nombre"]
-            codigo_producto = datos_producto["codigo"]
             precio_unitario = datos_producto["precio"]
             stock_disponible = datos_producto["stock"]
 
@@ -361,16 +359,18 @@ def mostrar_ventas():
 
                 cursor.execute("""
                     SELECT
-                        COUNT(*) AS Total_Registros,
-                        COALESCE(SUM(Cantidad), 0) AS Total_Unidades,
+                        COUNT(v.Id_Venta) AS Total_Registros,
+                        COALESCE(SUM(v.Cantidad), 0) AS Total_Unidades,
                         COALESCE(SUM(
                             CASE
-                                WHEN Total IS NULL OR Total = 0
-                                THEN Cantidad * Precio_Unitario
-                                ELSE Total
+                                WHEN v.Total IS NULL OR v.Total = 0
+                                THEN v.Cantidad * p.Precio
+                                ELSE v.Total
                             END
                         ), 0) AS Ingresos_Totales
-                    FROM Venta
+                    FROM Venta v
+                    INNER JOIN Producto p
+                        ON v.Id_Producto = p.Id_Producto
                 """)
 
                 resumen = cursor.fetchone()
@@ -448,17 +448,19 @@ def mostrar_ventas():
 
                 cursor.execute("""
                     SELECT
-                        COALESCE(Metodo_Pago, 'No especificado') AS Metodo,
-                        COUNT(*) AS Registros,
+                        COALESCE(v.Metodo_Pago, 'No especificado') AS Metodo,
+                        COUNT(v.Id_Venta) AS Registros,
                         COALESCE(SUM(
                             CASE
-                                WHEN Total IS NULL OR Total = 0
-                                THEN Cantidad * Precio_Unitario
-                                ELSE Total
+                                WHEN v.Total IS NULL OR v.Total = 0
+                                THEN v.Cantidad * p.Precio
+                                ELSE v.Total
                             END
                         ), 0) AS Ingresos
-                    FROM Venta
-                    GROUP BY Metodo_Pago
+                    FROM Venta v
+                    INNER JOIN Producto p
+                        ON v.Id_Producto = p.Id_Producto
+                    GROUP BY v.Metodo_Pago
                     ORDER BY Ingresos DESC
                 """)
 
@@ -544,6 +546,155 @@ def mostrar_ventas():
                 st.error(f"❌ Error al cargar estadísticas de ventas: {e}")
 
     # =====================================================
+    # EDITAR MÉTODO DE PAGO SOLO ADMIN
+    # =====================================================
+
+    if es_administrador():
+
+        st.divider()
+
+        with st.expander("✏️ Editar método de pago de ventas", expanded=False):
+
+            st.markdown(
+                '<div class="section-label">Corregir ventas antiguas o sin método de pago</div>',
+                unsafe_allow_html=True
+            )
+
+            st.info(
+                "Use esta sección para corregir ventas registradas antes de agregar el método de pago."
+            )
+
+            try:
+                con = obtener_conexion()
+                cursor = con.cursor()
+
+                asegurar_tabla_ventas(cursor)
+                con.commit()
+
+                cursor.execute("""
+                    SELECT
+                        v.Id_Venta,
+                        v.Id_Producto,
+                        p.Nombre,
+                        p.Codigo,
+                        v.Cantidad,
+                        CASE
+                            WHEN v.Precio_Unitario IS NULL OR v.Precio_Unitario = 0
+                            THEN p.Precio
+                            ELSE v.Precio_Unitario
+                        END AS Precio_Unitario,
+                        CASE
+                            WHEN v.Total IS NULL OR v.Total = 0
+                            THEN v.Cantidad * p.Precio
+                            ELSE v.Total
+                        END AS Total,
+                        COALESCE(v.Metodo_Pago, 'No especificado') AS Metodo_Pago,
+                        v.Fecha
+                    FROM Venta v
+                    INNER JOIN Producto p
+                        ON v.Id_Producto = p.Id_Producto
+                    ORDER BY v.Id_Venta DESC
+                """)
+
+                ventas_editar = cursor.fetchall()
+
+                if ventas_editar:
+
+                    opciones_editar = {}
+
+                    for venta in ventas_editar:
+                        id_venta = venta[0]
+                        producto = venta[2]
+                        cantidad = venta[4]
+                        total = float(venta[6])
+                        metodo_actual = venta[7]
+                        fecha = venta[8]
+
+                        texto = (
+                            f"Venta #{id_venta} | {producto} | "
+                            f"Cantidad: {cantidad} | Total: ${total:.2f} | "
+                            f"Método actual: {metodo_actual} | Fecha: {fecha}"
+                        )
+
+                        opciones_editar[texto] = venta
+
+                    venta_seleccionada = st.selectbox(
+                        "Seleccione la venta que desea corregir",
+                        list(opciones_editar.keys()),
+                        key="venta_editar_pago_select"
+                    )
+
+                    venta_actual = opciones_editar[venta_seleccionada]
+
+                    id_venta_actual = venta_actual[0]
+                    cantidad_actual = int(venta_actual[4])
+                    precio_unitario_actual = float(venta_actual[5])
+                    total_actual = float(venta_actual[6])
+                    metodo_actual = venta_actual[7]
+
+                    metodos_pago = [
+                        "Efectivo",
+                        "Transferencia bancaria",
+                        "No especificado"
+                    ]
+
+                    if metodo_actual in metodos_pago:
+                        indice_metodo = metodos_pago.index(metodo_actual)
+                    else:
+                        indice_metodo = 2
+
+                    with st.form("form_editar_metodo_pago"):
+
+                        nuevo_metodo = st.selectbox(
+                            "Nuevo método de pago",
+                            metodos_pago,
+                            index=indice_metodo
+                        )
+
+                        st.write(f"**Cantidad:** {cantidad_actual}")
+                        st.write(f"**Precio unitario aplicado:** ${precio_unitario_actual:.2f}")
+                        st.write(f"**Total de la venta:** ${total_actual:.2f}")
+
+                        actualizar = st.form_submit_button("💾 Guardar corrección")
+
+                        if actualizar:
+
+                            try:
+                                total_corregido = cantidad_actual * precio_unitario_actual
+
+                                cursor.execute("""
+                                    UPDATE Venta
+                                    SET
+                                        Metodo_Pago = %s,
+                                        Precio_Unitario = %s,
+                                        Total = %s
+                                    WHERE Id_Venta = %s
+                                """, (
+                                    nuevo_metodo,
+                                    precio_unitario_actual,
+                                    total_corregido,
+                                    id_venta_actual
+                                ))
+
+                                con.commit()
+
+                                st.success("✅ Método de pago actualizado correctamente.")
+                                st.rerun()
+
+                            except Exception as e:
+                                con.rollback()
+                                st.error(f"❌ Error al actualizar método de pago: {e}")
+
+                else:
+                    st.info("No hay ventas registradas para editar.")
+
+                cursor.close()
+                con.close()
+
+            except Exception as e:
+                st.error(f"❌ Error al cargar editor de métodos de pago: {e}")
+
+    # =====================================================
     # HISTORIAL DE VENTAS
     # =====================================================
 
@@ -570,15 +721,16 @@ def mostrar_ventas():
                     p.Nombre,
                     p.Codigo,
                     v.Cantidad,
-                    COALESCE(v.Precio_Unitario, p.Precio) AS Precio_Unitario,
-                    COALESCE(
-                        CASE
-                            WHEN v.Total IS NULL OR v.Total = 0
-                            THEN v.Cantidad * p.Precio
-                            ELSE v.Total
-                        END,
-                        0
-                    ) AS Total,
+                    CASE
+                        WHEN v.Precio_Unitario IS NULL OR v.Precio_Unitario = 0
+                        THEN p.Precio
+                        ELSE v.Precio_Unitario
+                    END AS Precio_Unitario,
+                    CASE
+                        WHEN v.Total IS NULL OR v.Total = 0
+                        THEN v.Cantidad * p.Precio
+                        ELSE v.Total
+                    END AS Total,
                     COALESCE(v.Metodo_Pago, 'No especificado') AS Metodo_Pago,
                     v.Fecha
                 FROM Venta v
